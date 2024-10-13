@@ -3,8 +3,8 @@ import fetch from 'node-fetch';
 import cors from 'cors';
 
 const app = express();
-const PORT = 3000;
-const CLIENT_ID = '78ae09421827e726a1f49137303cba80';
+const PORT = process.env.PORT || 3000;
+const CLIENT_ID = process.env.CLIENT_ID || '78ae09421827e726a1f49137303cba80';
 
 // Permitir CORS para todas las solicitudes
 app.use(cors());
