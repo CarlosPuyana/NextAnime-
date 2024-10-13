@@ -20,7 +20,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Función para obtener la lista de animes desde el servidor proxy
     async function fetchPlanToWatchList(username) {
         try {
-            const response = await fetch(`http://localhost:3000/getPlanToWatch/${username}`); //fetch(`http://nextanime-server.up.railway.app/getPlanToWatch/${username}`);
+            const response = await /* fetch(`http://localhost:3000/getPlanToWatch/${username}`); */ fetch(`http://nextanime-server.up.railway.app/getPlanToWatch/${username}`);
             if (!response.ok) {
                 throw new Error(`Error: ${response.status} - ${response.statusText}`);
             }
@@ -125,9 +125,33 @@ document.addEventListener('DOMContentLoaded', () => {
         randomAnimes = winnersAnime;
         firstLoad = false;
         console.log(winnersAnime);
-        //displaySecondBrackets(winnersAnime);
-        displayBrackets(winnersAnime);
+        displayFightAnimation(winnersAnime);
+        // displayBrackets(winnersAnime);
 
+    }
+
+    function displayFightAnimation(winnersAnime) {
+        // Creamos y mostramos un pop-up
+        const popup = document.createElement('div');
+        popup.id = 'popup';
+        popup.style.backgroundColor = 'white';
+        popup.style.display = 'flex';
+        popup.style.width = '40vw';
+        popup.style.height = '80vh';
+        popup.style.position = 'absolute';
+        popup.style.top = '0'
+
+        // Creamos el botón Pelea
+        const peleaButton = document.createElement('button');
+        peleaButton.textContent = 'PELEA';
+        peleaButton.style.width = '10vw';
+        peleaButton.style.height = '10vh';
+        peleaButton.style.position = 'absolute';
+        peleaButton.style.bottom = '0';
+        peleaButton.style.alignItems = 'center'
+        popup.appendChild(peleaButton);
+
+        document.body.appendChild(popup);
     }
 
     // Función para mostrar los brackets de 32 animes
