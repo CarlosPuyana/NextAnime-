@@ -4,6 +4,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const fetchListButton = document.getElementById('fetchListButton');
     const animeImage = document.getElementById('animeImage');
     const sortButton = document.getElementById('sortButton');
+    hideSort();
     let username = '';
     let animeList = [];
     let randomAnimes = [];
@@ -19,7 +20,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Función para obtener la lista de animes desde el servidor proxy
     async function fetchPlanToWatchList(username) {
         try {
-            const response = await fetch(`http://nextanime-server.up.railway.app/getPlanToWatch/${username}`);
+            const response = await fetch(`http://localhost:3000/getPlanToWatch/${username}`); //fetch(`http://nextanime-server.up.railway.app/getPlanToWatch/${username}`);
             if (!response.ok) {
                 throw new Error(`Error: ${response.status} - ${response.statusText}`);
             }
@@ -71,6 +72,10 @@ document.addEventListener('DOMContentLoaded', () => {
             console.log('No hay suficientes animes en Plan to Watch para hacer un torneo.');
         }
     });
+
+    function hideSort() {
+        sortButton.style.display = 'none';
+    }
 
     function botonVS() {
         const VS = document.createElement('div');
