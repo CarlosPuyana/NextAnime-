@@ -1,0 +1,75 @@
+/* Estilo general para toda la página */
+body {
+    background-color: #c70f55; /* Color de fondo */
+    display: flex;
+    flex-direction: column; /* Disposición en columna */
+    align-items: center; /* Centrar horizontalmente */
+    margin: 0; /* Eliminar márgenes por defecto */
+    font-family: Arial, sans-serif; /* Fuente por defecto */
+    height: 100vh; /* Altura completa de la ventana */
+}
+
+/* Contenedor principal */
+.container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-top: 20px; /* Espacio desde el borde superior */
+}
+
+h1 {
+    color: #ffffff; /* Color del texto */
+    margin-bottom: 20px;
+}
+
+#username {
+    padding: 10px;
+    border: none;
+    border-radius: 5px;
+    margin-bottom: 10px; /* Espacio entre el input y el botón */
+}
+
+#fetchListButton {
+    padding: 10px 20px;
+    background-color: #ffffff;
+    color: #c70f55;
+    border: none;
+    border-radius: 10px;
+    font-size: 16px;
+    cursor: pointer;
+    margin-bottom: 30px; /* Espacio entre el botón y el contenedor de animes */
+    transition: background-color 0.3s ease-in-out;
+}
+
+#fetchListButton:hover {
+    background-color: #e8e8e8;
+}
+
+/* Estilo para la imagen de los animes */
+#animeImage {
+    width: 250px;
+    height: 250px;
+    border-radius: 50%; /* Hacer la imagen completamente circular */
+    display: none; /* Ocultar inicialmente */
+    box-shadow: 0px 4px 15px rgba(0, 0, 0, 0.2); /* Sombra suave */
+    margin-bottom: 20px; /* Espacio entre la imagen y el botón */
+}
+
+/* Estilo para el botón de SORTEAR */
+#sortButton {
+    padding: 15px 30px;
+    background-color: #ffffff; /* Fondo blanco */
+    color: #c70f55; /* Color principal de la paleta */
+    border: 2px solid #ffffff;
+    border-radius: 20px; /* Botón con bordes más redondeados */
+    font-size: 18px;
+    cursor: pointer;
+    margin-top: 20px;
+    transition: all 0.3s ease-in-out;
+}
+
+#sortButton:hover {
+    background-color: #e8e8e8; /* Cambio de color al pasar el ratón */
+    color: #c70f55;
+    border: 2px solid #c70f55;
+}
