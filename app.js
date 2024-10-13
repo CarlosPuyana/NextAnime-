@@ -19,7 +19,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Función para obtener la lista de animes desde el servidor proxy
     async function fetchPlanToWatchList(username) {
         try {
-            const response = await fetch(`http://localhost:3000/getPlanToWatch/${username}`);
+            const response = await fetch(`http://nextanime-server.up.railway.app/getPlanToWatch/${username}`);
             if (!response.ok) {
                 throw new Error(`Error: ${response.status} - ${response.statusText}`);
             }
