@@ -125,8 +125,8 @@ document.addEventListener('DOMContentLoaded', () => {
         randomAnimes = winnersAnime;
         firstLoad = false;
         console.log(winnersAnime);
-        displayFightAnimation(winnersAnime);
-        // displayBrackets(winnersAnime);
+        // displayFightAnimation(winnersAnime);
+        displayBrackets(winnersAnime);
 
     }
 
