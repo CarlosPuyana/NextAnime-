@@ -161,13 +161,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 buttonFight.removeEventListener('click', siguienteFight); // Desactivar el botón
 
 
-                mostrarGanador();
+                displayBrackets(animeWin);
             }
         });
-    }
-
-    function mostrarGanador() {
-        
     }
 
     function funcSiguientePelea(animesRestantes) {
@@ -177,7 +173,7 @@ document.addEventListener('DOMContentLoaded', () => {
             console.log('¡El botón PELEA fue presionado!');
     
             // Continuar si hay más peleas disponibles
-            if (currentFightIndex < animesRestantes.length - 1) {
+            if (currentFightIndex < animesRestantes.length) {
                 const animResults = siguienteFight(animesRestantes); // Ejecutar la función cuando se haga clic
                 if (animResults === null) {
                     randomAnimes = randomAnimes.filter(anime =>
