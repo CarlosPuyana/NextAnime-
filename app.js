@@ -111,16 +111,38 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const winnersAnime = [];
 
-        fightAnimes(randomAnimes);
+        console.log('$', randomAnimes);
 
+        if (randomAnimes.length > 8) {
+            // Peleas animes
+            for (let a = 0; a <= randomAnimes.length - 1; a += 2) {
+
+                const numRandom = Math.floor(Math.random() * 2);
+                const winnerAnime = randomAnimes[a + numRandom];
+
+                winnersAnime.push(winnerAnime);
+            }
+
+            randomAnimes = winnersAnime;
+            firstLoad = false;
+            console.log(winnersAnime);
+            // displayFightAnimation(winnersAnime);
+            displayBrackets(winnersAnime);
+            // <<-->> //
+        } else {
+            fightAnimes(randomAnimes);
+        }
     }
+
     let currentFightIndex = 0;
-    const animeWin = [];
+    let animeWin = [];
 
     function fightAnimes(animes) {
     
         // Mostrar la primera pelea
-        animeWin.push(siguienteFight(animes).ganador);
+        const ganador1Pelea = siguienteFight(animes);
+        animeWin.push(ganador1Pelea.ganador);
+        // animes = animes.filter((anime) => anime.id !== ganador1Pelea.ganador.id && anime.id !== ganador1Pelea.perdedor.id );
     
         // Añadir el evento al botón
         const buttonFight = document.getElementById('buttonFight');
@@ -133,12 +155,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 animeWin.push(animResults.ganador); // Guardar el ganador
                 console.log('Ganadores actuales:', animeWin);
                 const animRestantes = animes.filter((anime) => anime.id !== animResults.ganador.id && anime.id !== animResults.perdedor.id );
-                funcSiguientePelea(animRestantes);
+                funcSiguientePelea(animes);
             } else {
                 console.log('Todas las peleas han terminado');
                 buttonFight.removeEventListener('click', siguienteFight); // Desactivar el botón
+
+
+                mostrarGanador();
             }
         });
+    }
+
+    function mostrarGanador() {
+        
     }
 
     function funcSiguientePelea(animesRestantes) {
@@ -150,10 +179,19 @@ document.addEventListener('DOMContentLoaded', () => {
             // Continuar si hay más peleas disponibles
             if (currentFightIndex < animesRestantes.length - 1) {
                 const animResults = siguienteFight(animesRestantes); // Ejecutar la función cuando se haga clic
-                animeWin.push(animResults.ganador); // Guardar el ganador
-                console.log('Ganadores actuales:', animeWin);
-                const animRestantes2 = animesRestantes.filter((anime) => anime.id !== animResults.ganador.id && anime.id !== animResults.perdedor.id );
-                funcSiguientePelea(animRestantes2);
+                if (animResults === null) {
+                    randomAnimes = randomAnimes.filter(anime =>
+                        !animeWin.some(removeItem => removeItem.id === anime.id)
+                    );
+                    currentFightIndex = 0;
+                    displayBrackets(animeWin)
+                    animeWin = [];
+                } else {
+                    animeWin.push(animResults.ganador); // Guardar el ganador
+                    console.log('Ganadores actuales:', animeWin);
+                    funcSiguientePelea(animesRestantes);
+                }
+                
             } else {
                 console.log('Todas las peleas han terminado');
                 buttonFight.removeEventListener('click', siguienteFight); // Desactivar el botón
@@ -163,16 +201,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Función que se ejecuta cuando se pulse el botón
     function siguienteFight(animes) {
-        if (currentFightIndex < animes.length - 1) {
+        if (currentFightIndex < animes.length / 2) {
+            const animeTotales = animes.length / 2;
             const anime1 = animes[currentFightIndex];
-            const anime2 = animes[currentFightIndex + 1];
+            const anime2 = animes[currentFightIndex + animeTotales];
     
             // Mostrar la pelea actual
             displayPopUpFightAnimation(anime1, anime2);
     
             // Decidir y guardar el ganador
             const animResults = animeWinnerFight(anime1, anime2);
-            currentFightIndex += 2; // Pasar al siguiente par de animes
+            currentFightIndex++; // Pasar al siguiente par de animes
             return animResults;
         } else {
             console.log('No quedan más peleas');
