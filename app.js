@@ -20,7 +20,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Función para obtener la lista de animes desde el servidor proxy
     async function fetchPlanToWatchList(username) {
         try {
-            const response = await /* fetch(`http://localhost:3000/getPlanToWatch/${username}`); */ fetch(`https://nextanime-server.up.railway.app/getPlanToWatch/${username}`);
+            const response = await fetch(`http://localhost:3000/getPlanToWatch/${username}`); // fetch(`https://nextanime-server.up.railway.app/getPlanToWatch/${username}`);
             if (!response.ok) {
                 throw new Error(`Error: ${response.status} - ${response.statusText}`);
             }
@@ -107,32 +107,122 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Función llamadaVS
     function llamadaVS() {
-        console.log('¡El botón VS fue presionado!'); // Aquí puedes agregar la lógica que necesites
+        console.log('¡El botón VS fue presionado!');
 
         const winnersAnime = [];
 
         console.log('$', randomAnimes);
 
-        // Peleas animes
-        for (let a = 0; a <= randomAnimes.length - 1; a += 2) {
+        if (randomAnimes.length > 8) {
+            // Peleas animes
+            for (let a = 0; a <= randomAnimes.length - 1; a += 2) {
 
-            const numRandom = Math.floor(Math.random() * 2);
-            const winnerAnime = randomAnimes[a + numRandom];
+                const numRandom = Math.floor(Math.random() * 2);
+                const winnerAnime = randomAnimes[a + numRandom];
 
-            winnersAnime.push(winnerAnime);
+                winnersAnime.push(winnerAnime);
+            }
+
+            randomAnimes = winnersAnime;
+            firstLoad = false;
+            console.log(winnersAnime);
+            // displayFightAnimation(winnersAnime);
+            displayBrackets(winnersAnime);
+            // <<-->> //
+        } else {
+            fightAnimes(randomAnimes);
         }
-
-        randomAnimes = winnersAnime;
-        firstLoad = false;
-        console.log(winnersAnime);
-        // displayFightAnimation(winnersAnime);
-        displayBrackets(winnersAnime);
-
     }
 
-    function displayFightAnimation(winnersAnime) {
+    let currentFightIndex = 0;
+    let animeWin = [];
+
+    function fightAnimes(animes) {
+    
+        // Mostrar la primera pelea
+        const ganador1Pelea = siguienteFight(animes);
+        animeWin.push(ganador1Pelea.ganador);
+        // animes = animes.filter((anime) => anime.id !== ganador1Pelea.ganador.id && anime.id !== ganador1Pelea.perdedor.id );
+    
+        // Añadir el evento al botón
+        const buttonFight = document.getElementById('buttonFight');
+        buttonFight.addEventListener('click', () => {
+            console.log('¡El botón PELEA fue presionado!');
+    
+            // Continuar si hay más peleas disponibles
+            if (currentFightIndex < animes.length - 1) {
+                const animResults = siguienteFight(animes); // Ejecutar la función cuando se haga clic
+                animeWin.push(animResults.ganador); // Guardar el ganador
+                console.log('Ganadores actuales:', animeWin);
+                const animRestantes = animes.filter((anime) => anime.id !== animResults.ganador.id && anime.id !== animResults.perdedor.id );
+                funcSiguientePelea(animes);
+            } else {
+                console.log('Todas las peleas han terminado');
+                buttonFight.removeEventListener('click', siguienteFight); // Desactivar el botón
+
+
+                displayBrackets(animeWin);
+            }
+        });
+    }
+
+    function funcSiguientePelea(animesRestantes) {
+        // Añadir el evento al botón
+        const buttonFight = document.getElementById('buttonFight');
+        buttonFight.addEventListener('click', () => {
+            console.log('¡El botón PELEA fue presionado!');
+    
+            // Continuar si hay más peleas disponibles
+            if (currentFightIndex < animesRestantes.length) {
+                const animResults = siguienteFight(animesRestantes); // Ejecutar la función cuando se haga clic
+                if (animResults === null) {
+                    randomAnimes = randomAnimes.filter(anime =>
+                        !animeWin.some(removeItem => removeItem.id === anime.id)
+                    );
+                    currentFightIndex = 0;
+                    displayBrackets(animeWin)
+                    animeWin = [];
+                } else {
+                    animeWin.push(animResults.ganador); // Guardar el ganador
+                    console.log('Ganadores actuales:', animeWin);
+                    funcSiguientePelea(animesRestantes);
+                }
+                
+            } else {
+                console.log('Todas las peleas han terminado');
+                buttonFight.removeEventListener('click', siguienteFight); // Desactivar el botón
+            }
+        });
+    }
+
+    // Función que se ejecuta cuando se pulse el botón
+    function siguienteFight(animes) {
+        if (currentFightIndex < animes.length / 2) {
+            const animeTotales = animes.length / 2;
+            const anime1 = animes[currentFightIndex];
+            const anime2 = animes[currentFightIndex + animeTotales];
+    
+            // Mostrar la pelea actual
+            displayPopUpFightAnimation(anime1, anime2);
+    
+            // Decidir y guardar el ganador
+            const animResults = animeWinnerFight(anime1, anime2);
+            currentFightIndex++; // Pasar al siguiente par de animes
+            return animResults;
+        } else {
+            console.log('No quedan más peleas');
+            return null;
+        }
+    }
+
+    function displayPopUpFightAnimation(anime1, anime2) {
         // Creamos y mostramos un pop-up
-        const popup = document.createElement('div');
+        let popup = document.getElementById('popup');
+        if (document.getElementById('popup') != null) {
+            popup.remove();
+        }
+
+        popup = document.createElement('div');
         popup.id = 'popup';
         popup.style.backgroundColor = 'white';
         popup.style.display = 'flex';
@@ -143,6 +233,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Creamos el botón Pelea
         const peleaButton = document.createElement('button');
+        peleaButton.id = 'buttonFight';
         peleaButton.textContent = 'PELEA';
         peleaButton.style.width = '10vw';
         peleaButton.style.height = '10vh';
@@ -151,7 +242,77 @@ document.addEventListener('DOMContentLoaded', () => {
         peleaButton.style.alignItems = 'center'
         popup.appendChild(peleaButton);
 
+        displayAnimes(anime1, anime2, popup);
         document.body.appendChild(popup);
+    }
+
+    // Función para enseñar los animes que pelearán
+    function displayAnimes(anime1, anime2, popup) {
+        const divPelea = document.createElement('div');
+        divPelea.id = 'divPelea';
+        divPelea.style.display = 'flex'; // Para mostrar los animes uno al lado del otro
+
+        // Crear div para anime1
+        const divAnime1 = document.createElement('div');
+        divAnime1.id = 'divAnime1';
+        divAnime1.style.display = 'flex';
+        divAnime1.style.flexDirection = 'column';
+        divAnime1.style.alignItems = 'center'; // Centrar horizontalmente
+        divAnime1.style.justifyContent = 'center'; // Centrar verticalmente
+        divAnime1.style.textAlign = 'center'; // Centrar el texto
+        divAnime1.style.width = '20vw';
+
+        // Añadir portada y nombre para anime1
+        const imgAnime1 = document.createElement('img');
+        imgAnime1.src = anime1.main_picture.medium; // La URL de la portada del anime
+        imgAnime1.alt = anime1.title;
+        imgAnime1.style.width = '100px'; // Tamaño de la imagen (puedes ajustar esto)
+        imgAnime1.style.height = '150px'; // Tamaño de la imagen
+
+        const nameAnime1 = document.createElement('span');
+        nameAnime1.textContent = anime1.title;
+        nameAnime1.style.width = '50%'
+
+        divAnime1.appendChild(imgAnime1);
+        divAnime1.appendChild(nameAnime1);
+
+        // Crear div para anime2
+        const divAnime2 = document.createElement('div');
+        divAnime2.id = 'divAnime2';
+        divAnime2.style.display = 'flex';
+        divAnime2.style.flexDirection = 'column';
+        divAnime2.style.alignItems = 'center'; // Centrar horizontalmente
+        divAnime2.style.justifyContent = 'center'; // Centrar verticalmente
+        divAnime2.style.textAlign = 'center'; // Centrar el texto
+        divAnime2.style.width = '20vw';
+
+        // Añadir portada y nombre para anime2
+        const imgAnime2 = document.createElement('img');
+        imgAnime2.src = anime2.main_picture.medium; // La URL de la portada del anime
+        imgAnime2.alt = anime2.title;
+        imgAnime2.style.width = '100px'; // Tamaño de la imagen (puedes ajustar esto)
+        imgAnime2.style.height = '150px'; // Tamaño de la imagen
+
+        const nameAnime2 = document.createElement('span');
+        nameAnime2.textContent = anime2.title;
+        nameAnime2.style.width = '50%'
+
+        divAnime2.appendChild(imgAnime2);
+        divAnime2.appendChild(nameAnime2);
+
+        // Añadir los divs de animes al divPelea
+        divPelea.appendChild(divAnime1);
+        divPelea.appendChild(divAnime2);
+
+        // Añadir el divPelea al body o a otro contenedor
+        popup.appendChild(divPelea);
+    }
+
+
+    // Función que saca el ganador de la pelea
+    function animeWinnerFight(anime1, anime2) {
+        const numRandom = Math.floor(Math.random() * 2);
+        return numRandom === 0 ? ({ ganador: anime1, perdedor: anime2 }) : ({ ganador: anime2, perdedor: anime1 });
     }
 
     // Función para mostrar los brackets de 32 animes
