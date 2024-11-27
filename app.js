@@ -177,7 +177,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const animResults = siguienteFight(animesRestantes); // Ejecutar la función cuando se haga clic
                 if (animResults === null) {
                     randomAnimes = randomAnimes.filter(anime =>
-                        !animeWin.some(removeItem => removeItem.id === anime.id)
+                        animeWin.some(removeItem => removeItem.id === anime.id)
                     );
                     currentFightIndex = 0;
                     displayBrackets(animeWin)
