@@ -24,12 +24,15 @@ import type {
   Profile,
   Recommendation,
   Results,
+  RecommendationMode,
+  GeminiAvailability,
 } from "../../shared/types";
 import { api } from "./api";
 import { genreName } from "../../shared/genre-labels";
 import { CUSTOM_PROFILE, PROFILES, resolveProfile } from "./config/profiles";
 import { ProfileAvatar, profileAssetUrl } from "./components/ProfileAvatar";
 import { ProfileCard } from "./components/ProfileCard";
+import { EngineSelector } from "./components/EngineSelector";
 
 const defaults: Preferences = { genres: [], source: "both", count: 5 };
 function App() {
@@ -51,8 +54,28 @@ function App() {
     [seen, setSeen] = useState<number[]>([]);
   const [last, setLast] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [mode, setMode] = useState<RecommendationMode>("classic");
+  const [aiConsent, setAiConsent] = useState(false);
+  const [gemini, setGemini] = useState<GeminiAvailability>({
+    available: false,
+    reason: "loading",
+    model: "",
+    message:
+      "El modo clásico está disponible. No se ha confirmado la disponibilidad de Gemini.",
+  });
   const titleRef = useRef<HTMLHeadingElement>(null);
   useEffect(() => {
+    void api<{ gemini: GeminiAvailability }>("/capabilities")
+      .then((data) => setGemini(data.gemini))
+      .catch(() =>
+        setGemini({
+          available: false,
+          reason: "unavailable",
+          model: "",
+          message:
+            "No se pudo confirmar la disponibilidad de Gemini. Puedes continuar con el modo clásico.",
+        }),
+      );
     try {
       setLast(localStorage.getItem("nextanime:last") ?? "");
     } catch {
@@ -93,6 +116,8 @@ function App() {
       setSeen([]);
       setResult(null);
       setPreferences(defaults);
+      setMode("classic");
+      setAiConsent(false);
       setScreen("preferences");
       setLast(name);
       try {
@@ -108,6 +133,12 @@ function App() {
   }
   async function discover() {
     if (!profile) return;
+    if (mode === "gemini" && !aiConsent) {
+      setError(
+        "Confirma el consentimiento o utiliza la recomendación clásica.",
+      );
+      return;
+    }
     setError("");
     setLoading("Encontrando tu próxima historia");
     try {
@@ -115,6 +146,16 @@ function App() {
         username: profile.username,
         preferences,
         seen,
+        mode,
+        ...(mode === "gemini" && aiConsent
+          ? {
+              consent: {
+                externalProcessing: true,
+                adult: true,
+                version: "2026-11-01",
+              },
+            }
+          : {}),
       });
       setResult(data);
       setSeen((old) => [
@@ -134,6 +175,8 @@ function App() {
     setResult(null);
     setSeen([]);
     setSelectedId(null);
+    setMode("classic");
+    setAiConsent(false);
   }
   function updatePreferences(next: Preferences) {
     setPreferences(next);
@@ -549,6 +592,16 @@ function App() {
                         ))}
                       </div>
                     </section>
+                    <EngineSelector
+                      mode={mode}
+                      consent={aiConsent}
+                      gemini={gemini}
+                      onConsentChange={setAiConsent}
+                      onModeChange={(next) => {
+                        setMode(next);
+                        setAiConsent(false);
+                      }}
+                    />
                   </div>
                   <aside className="discovery-summary">
                     <span className="summary-art" aria-hidden="true">
@@ -589,7 +642,7 @@ function App() {
                     <button
                       className="primary discover-button"
                       onClick={() => void discover()}
-                      disabled={!!loading}
+                      disabled={!!loading || (mode === "gemini" && !aiConsent)}
                     >
                       Descubrir mis próximos animes <ArrowRight size={18} />
                     </button>
@@ -625,6 +678,18 @@ function App() {
                     <ArrowLeft size={16} /> Cambiar preferencias
                   </button>
                 </div>
+                <p
+                  className="engine-badge"
+                  data-engine={result.engine ?? "classic"}
+                >
+                  <Sparkles size={14} />
+                  {result.engine === "gemini"
+                    ? "Recomendación con Gemini"
+                    : "Recomendación clásica"}
+                  {result.engineInfo?.cacheHit && (
+                    <small>Resultado reutilizado</small>
+                  )}
+                </p>
                 {result.warnings.map((w) => (
                   <div className="notice" role="status" key={w}>
                     {w}
@@ -679,9 +744,9 @@ function App() {
                     Cambiar perfil <ArrowRight size={15} />
                   </button>
                   <small>
-                    {result.explanationMode === "generative"
-                      ? "Explicaciones redactadas con IA a partir de datos reales."
-                      : "Recomendador algorítmico · explicaciones basadas en datos reales."}
+                    {result.engine === "gemini"
+                      ? "Gemini ha ordenado la selección. Motivos vinculados a sinopsis verificadas."
+                      : "Selección y explicaciones del algoritmo clásico. Sin análisis externo de IA."}
                   </small>
                 </div>
               </>

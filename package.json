@@ -1,6 +1,6 @@
 {
   "name": "nextanime",
-  "version": "2.0.0",
+  "version": "3.0.0",
   "private": true,
   "type": "module",
   "engines": {
@@ -16,9 +16,11 @@
     "lint": "eslint .",
     "test": "vitest run",
     "test:e2e": "playwright test",
-    "test:live": "node --import tsx scripts/smoke.ts"
+    "test:live": "node --import tsx scripts/smoke.ts",
+    "evaluate": "node --env-file-if-exists=.env --import tsx scripts/evaluate.ts"
   },
   "dependencies": {
+    "@google/genai": "^2.32.0",
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
     "express": "^5.1.0",

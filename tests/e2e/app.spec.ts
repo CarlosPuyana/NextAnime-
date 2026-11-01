@@ -3,6 +3,20 @@ import { profile, discoveries, action, romance } from "../fixtures";
 import { analyze, recommend } from "../../backend/src/recommender";
 import { PROFILES } from "../../frontend/src/config/profiles";
 async function mock(page: Page) {
+  await page.route("**/api/capabilities", (r) =>
+    r.fulfill({
+      json: {
+        gemini: {
+          available: false,
+          reason: "region_policy",
+          model: "gemini-3.1-flash-lite",
+          message:
+            "Gemini está preparado, pero no se activa con el presupuesto de 0 € para usuarios del EEE.",
+        },
+        consentVersion: "2026-11-01",
+      },
+    }),
+  );
   await page.route("**/api/genres", (r) =>
     r.fulfill({ json: [action, romance, { id: 10, name: "Fantasy" }] }),
   );
@@ -31,7 +45,7 @@ async function mock(page: Page) {
 }
 test.beforeEach(async ({ page }) => {
   await mock(page);
-  await page.goto("./");
+  await page.goto("./", { waitUntil: "domcontentloaded" });
 });
 for (const p of PROFILES)
   test(`select profile ${p.displayName} using MAL ${p.malUsername}`, async ({
@@ -188,6 +202,115 @@ test("empty recommendations explain limitations without invalid filler", async (
     page.getByRole("heading", { name: /Hemos explorado/ }),
   ).toBeVisible();
   await expect(page.getByText(/Encontramos 0 de las 5/)).toBeVisible();
+});
+
+test("Gemini mode requires explicit consent and truthful engine indicator", async ({
+  page,
+}) => {
+  await page.route("**/api/capabilities", (r) =>
+    r.fulfill({
+      json: {
+        gemini: {
+          available: true,
+          reason: "ready",
+          model: "test-model",
+          message: "Disponible para prueba simulada",
+        },
+      },
+    }),
+  );
+  await page.reload();
+  await page.getByRole("button", { name: /^SadPuyana/ }).click();
+  await expect(
+    page.getByRole("button", { name: /Recomendación clásica/ }),
+  ).toHaveAttribute("aria-pressed", "true");
+  await page
+    .getByRole("button", { name: /Recomendación inteligente con Gemini/ })
+    .click();
+  await expect(
+    page.getByRole("button", { name: /Descubrir mis próximos/ }),
+  ).toBeDisabled();
+  await expect(page.getByText(/Google recibirá hasta 40/)).toBeVisible();
+  await page.getByRole("checkbox", { name: /Soy mayor de 18/ }).check();
+  await page.route("**/api/recommendations", (r) => {
+    const body = r.request().postDataJSON();
+    expect(body.mode).toBe("gemini");
+    expect(body.consent.externalProcessing).toBe(true);
+    return r.fulfill({
+      json: {
+        ...recommend(
+          profile,
+          [...profile.anime, ...discoveries],
+          body.preferences,
+          body.seen,
+        ),
+        engine: "gemini",
+        explanationMode: "generative",
+      },
+    });
+  });
+  await page.getByRole("button", { name: /Descubrir mis próximos/ }).click();
+  await expect(page.locator(".engine-badge")).toHaveText(
+    "Recomendación con Gemini",
+  );
+  await page.getByRole("button", { name: "Cambiar preferencias" }).click();
+  await page.getByRole("button", { name: /Recomendación clásica/ }).click();
+  await expect(page.getByRole("checkbox")).toHaveCount(0);
+});
+
+test("unavailable Gemini leaves classic recommendations fully usable", async ({
+  page,
+}) => {
+  await page.getByRole("button", { name: /^SadPuyana/ }).click();
+  await expect(
+    page.getByRole("button", { name: /Recomendación inteligente con Gemini/ }),
+  ).toBeDisabled();
+  await page.getByRole("button", { name: /Descubrir mis próximos/ }).click();
+  await expect(page.locator(".engine-badge")).toHaveText(
+    "Recomendación clásica",
+  );
+});
+
+test("fallback is labelled classic even after an intelligent request", async ({
+  page,
+}) => {
+  await page.route("**/api/capabilities", (r) =>
+    r.fulfill({
+      json: {
+        gemini: {
+          available: true,
+          reason: "ready",
+          model: "mock",
+          message: "Disponible",
+        },
+      },
+    }),
+  );
+  await page.reload();
+  await page.getByRole("button", { name: /^SadPuyana/ }).click();
+  await page
+    .getByRole("button", { name: /Recomendación inteligente con Gemini/ })
+    .click();
+  await page.getByRole("checkbox").check();
+  await page.route("**/api/recommendations", (r) =>
+    r.fulfill({
+      json: {
+        ...recommend(
+          profile,
+          [...profile.anime, ...discoveries],
+          r.request().postDataJSON().preferences,
+        ),
+        warnings: [
+          "Gemini no respondió a tiempo. Hemos utilizado la recomendación clásica.",
+        ],
+      },
+    }),
+  );
+  await page.getByRole("button", { name: /Descubrir mis próximos/ }).click();
+  await expect(page.locator(".engine-badge")).toHaveText(
+    "Recomendación clásica",
+  );
+  await expect(page.getByText(/Gemini no respondió a tiempo/)).toBeVisible();
 });
 
 test("custom profile stays neutral and never inherits a predefined portrait", async ({

@@ -26,6 +26,18 @@ export interface Profile {
   fetchedAt: string;
 }
 export type Source = "both" | "pending" | "discover";
+export type RecommendationMode = "classic" | "gemini";
+export interface AIConsent {
+  externalProcessing: true;
+  adult: true;
+  version: "2026-11-01";
+}
+export interface GeminiAvailability {
+  available: boolean;
+  reason: string;
+  message: string;
+  model: string;
+}
 export interface Preferences {
   genres: number[];
   source: Source;
@@ -47,6 +59,7 @@ export interface Recommendation {
   origin: "pending" | "discover";
   explanation: string;
   rankingScore: number;
+  reasons?: string[];
 }
 export interface Results {
   items: Recommendation[];
@@ -54,4 +67,15 @@ export interface Results {
   warnings: string[];
   explanationMode: "deterministic" | "generative";
   analysis: Analysis;
+  engine: RecommendationMode;
+  engineInfo?: {
+    requested: RecommendationMode;
+    used: RecommendationMode;
+    fallbackReason?: string;
+    model?: string;
+    cacheHit: boolean;
+    latencyMs: number;
+    inputTokens?: number;
+    outputTokens?: number;
+  };
 }

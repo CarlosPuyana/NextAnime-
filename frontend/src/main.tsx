@@ -4,6 +4,7 @@ import App from "./App";
 import "./styles.css";
 import "./anime-theme.css";
 import "./profiles.css";
+import "./ai.css";
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <App />

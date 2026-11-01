@@ -4,7 +4,7 @@
 - [Catálogo MAL](https://myanimelist.net/anime.php): 78 géneros, temáticas y demografías verificados el 1 de noviembre de 2026. Independiente de las listas personales.
 - Rankings oficiales `all`, `bypopularity` y `anime/season/{year}/{season}`: candidatos externos reales con MAL ID.
 - [Jikan](https://docs.api.jikan.moe/): evaluado, pero no respondió desde el entorno de desarrollo. No es una dependencia necesaria y no se le atribuyen los datos obtenidos de MAL.
-- [Responses y salida estructurada](https://developers.openai.com/api/docs/guides/structured-outputs?api-mode=responses): integración generativa opcional, sin llamadas reales al no haber credenciales configuradas.
+- [Google GenAI](https://googleapis.github.io/js-genai/release_docs/index.html) y [salida estructurada Gemini](https://ai.google.dev/gemini-api/docs/structured-output): segunda etapa opcional de ranking, preparada y probada con mocks. No se realizaron llamadas reales en esta publicación.
 
 Los datos ausentes se conservan como null. La nota personal es distinta de la nota media. Las portadas pertenecen al catálogo real; las ilustraciones de marca son originales y no se usan como portadas de resultados. Títulos y sinopsis conservan el idioma proporcionado por MAL.
 

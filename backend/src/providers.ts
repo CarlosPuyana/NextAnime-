@@ -224,15 +224,28 @@ export async function loadDiscovery(_genres: number[] = []): Promise<Anime[]> {
       "/anime/ranking?ranking_type=bypopularity&limit=100&offset=200",
       `/anime/season/${year}/${season}?limit=100&sort=anime_num_list_users`,
     ];
-    for (const path of paths) {
-      const data = await upstream(`${MAL}${path}&fields=${fields}`);
-      if (!Array.isArray(data.data))
-        throw new ApiError(502, "El catálogo está temporalmente incompleto.");
-      all.push(
-        ...data.data
-          .filter((a: any) => Number.isInteger(a.node?.id) && a.node?.title)
-          .map((a: any) => normalizeMAL(a.node)),
-      );
+    // Bounded long-tail and historical seasons, with MAL IDs from the same official source.
+    paths.push(
+      "/anime/ranking?ranking_type=bypopularity&limit=100&offset=500",
+      `/anime/season/${year - 1}/${season}?limit=100&sort=anime_num_list_users`,
+      `/anime/season/${year - 2}/${season}?limit=100&sort=anime_num_list_users`,
+    );
+    for (const [index, path] of paths.entries()) {
+      try {
+        const data = await upstream(`${MAL}${path}&fields=${fields}`);
+        if (!Array.isArray(data.data))
+          throw new ApiError(502, "El catálogo está temporalmente incompleto.");
+        all.push(
+          ...data.data
+            .filter((a: any) => Number.isInteger(a.node?.id) && a.node?.title)
+            .map((a: any) => normalizeMAL(a.node)),
+        );
+      } catch (error) {
+        if (index < 5) throw error;
+        console.warn(
+          JSON.stringify({ event: "discovery_optional_source_unavailable" }),
+        );
+      }
     }
     return catalogCache.set(key, [
       ...new Map(all.map((a) => [a.id, a])).values(),

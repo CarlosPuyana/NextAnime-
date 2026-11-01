@@ -5,8 +5,8 @@ import { rateLimit } from "express-rate-limit";
 import { z } from "zod";
 import { ApiError } from "./errors.js";
 import * as providers from "./providers.js";
-import { analyze, eligible, recommend } from "./recommender.js";
-import { explainWithAI } from "./ai.js";
+import { analyze, eligible, rankCandidates } from "./recommender.js";
+import { GeminiRankingService, type RankingService } from "./ai.js";
 import type { Anime, Genre, Profile } from "../../shared/types.js";
 export interface Services {
   loadProfile: (username: string) => Promise<Profile>;
@@ -23,8 +23,19 @@ const inputSchema = z.object({
     count: z.union([z.literal(3), z.literal(5), z.literal(10), z.literal(20)]),
   }),
   seen: z.array(z.number().int().positive()).max(10000).default([]),
+  mode: z.enum(["classic", "gemini"]).default("classic"),
+  consent: z
+    .object({
+      externalProcessing: z.literal(true),
+      adult: z.literal(true),
+      version: z.literal("2026-11-01"),
+    })
+    .optional(),
 });
-export function createApp(services: Services = providers) {
+export function createApp(
+  services: Services = providers,
+  ranking: RankingService = new GeminiRankingService(),
+) {
   const app = express();
   app.disable("x-powered-by");
   app.set("trust proxy", 1);
@@ -47,9 +58,10 @@ export function createApp(services: Services = providers) {
   app.get("/api/health", (_req, res) =>
     res.json({
       status: "ok",
-      version: "2.0.0",
+      version: "3.0.0",
       malConfigured: !!(process.env.MAL_CLIENT_ID || process.env.CLIENT_ID),
-      aiConfigured: !!(process.env.AI_API_KEY && process.env.AI_MODEL),
+      aiConfigured: ranking.status().available,
+      gemini: ranking.status(),
     }),
   );
   app.use(
@@ -66,6 +78,11 @@ export function createApp(services: Services = providers) {
   );
   app.get("/api/genres", async (_req, res) =>
     res.json(await services.loadGenres()),
+  );
+  app.get("/api/capabilities", (_req, res) =>
+    res
+      .set("Cache-Control", "no-store")
+      .json({ gemini: ranking.status(), consentVersion: "2026-11-01" }),
   );
   app.get("/api/profiles/:username", async (req, res) => {
     const username = usernameSchema.parse(req.params.username);
@@ -86,7 +103,9 @@ export function createApp(services: Services = providers) {
       );
     active++;
     try {
-      const { username, preferences, seen } = inputSchema.parse(req.body);
+      const { username, preferences, seen, mode, consent } = inputSchema.parse(
+        req.body,
+      );
       const profile = await services.loadProfile(username);
       const warnings: string[] = [];
       const candidates =
@@ -106,14 +125,14 @@ export function createApp(services: Services = providers) {
         }
       }
       // Pre-filter before hydrating; verify relations for candidates that may actually be returned.
-      const preliminary = recommend(
+      const preliminary = rankCandidates(
         profile,
         candidates,
-        { ...preferences, count: 20 },
+        preferences,
         seen,
       );
       const ordered = [
-        ...preliminary.items.map((i) => i.anime),
+        ...preliminary.map((i) => i.anime),
         ...eligible(profile, candidates, preferences, seen),
       ];
       const unique = [...new Map(ordered.map((a) => [a.id, a])).values()];
@@ -135,17 +154,28 @@ export function createApp(services: Services = providers) {
         } catch {
           failed++;
         }
-        if (verified.length >= Math.max(preferences.count * 2, 30)) break;
+        if (
+          verified.length >=
+          (mode === "gemini" ? 40 : Math.max(preferences.count * 2, 30))
+        )
+          break;
       }
       if (failed)
         warnings.push(
           `${failed} candidatos no pudieron verificarse y se han omitido.`,
         );
-      const result = await explainWithAI(
-        recommend(profile, verified, preferences, seen),
-      );
-      result.warnings.push(...warnings);
-      res.set("Cache-Control", "no-store").json(result);
+      const result = await ranking.rank({
+        profile,
+        candidates: verified,
+        preferences,
+        seen,
+        mode,
+        consent,
+        client: req.ip ?? "unknown",
+      });
+      res
+        .set("Cache-Control", "no-store")
+        .json({ ...result, warnings: [...result.warnings, ...warnings] });
     } catch (error) {
       next(error);
     } finally {
@@ -172,14 +202,12 @@ export function createApp(services: Services = providers) {
         return res
           .status(400)
           .json({ error: "La solicitud no contiene JSON válido." });
-      res
-        .status(error instanceof ApiError ? error.status : 500)
-        .json({
-          error:
-            error instanceof ApiError
-              ? error.message
-              : "No pudimos completar la consulta. Vuelve a intentarlo.",
-        });
+      res.status(error instanceof ApiError ? error.status : 500).json({
+        error:
+          error instanceof ApiError
+            ? error.message
+            : "No pudimos completar la consulta. Vuelve a intentarlo.",
+      });
     },
   );
   return app;

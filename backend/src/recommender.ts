@@ -16,6 +16,7 @@ export const DEFAULT_WEIGHTS = {
   diversity: 0.65,
   format: 0.25,
 };
+export const ALGORITHM_VERSION = "3.0-content-mmr-1";
 export function analyze(profile: Profile): Analysis {
   const rated = profile.anime.filter(
     (a) =>
@@ -135,6 +136,7 @@ export function recommend(
   preferences: Preferences,
   seen: number[] = [],
   weights = DEFAULT_WEIGHTS,
+  limit: number = preferences.count,
 ): Results {
   const analysis = analyze(profile);
   const tastes = new Map(analysis.favorites.map((t) => [t.genre.id, t]));
@@ -167,7 +169,7 @@ export function recommend(
     return { anime, score };
   });
   const items: Recommendation[] = [];
-  while (items.length < preferences.count && scored.length) {
+  while (items.length < limit && scored.length) {
     scored.sort((a, b) => {
       const diversity = (x: Anime) =>
         items.length
@@ -212,5 +214,23 @@ export function recommend(
     warnings,
     analysis,
     explanationMode: "deterministic",
+    engine: "classic",
   };
+}
+
+export function rankCandidates(
+  profile: Profile,
+  candidates: Anime[],
+  preferences: Preferences,
+  seen: number[] = [],
+  limit = 30,
+): Recommendation[] {
+  return recommend(
+    profile,
+    candidates,
+    preferences,
+    seen,
+    DEFAULT_WEIGHTS,
+    Math.max(20, Math.min(40, limit)),
+  ).items;
 }

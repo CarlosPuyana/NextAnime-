@@ -1,4 +1,4 @@
-# NextAnime 2.0
+# NextAnime 3.0
 
 Tu próxima historia empieza aquí. Una aplicación de recomendaciones personales basada en tus listas **públicas** de MyAnimeList, con interfaz en español, arte anime original y portadas reales.
 
@@ -65,16 +65,19 @@ El frontend local es `http://127.0.0.1:5173/NextAnime-/`; Vite reenvía `/api` a
 
 ### Variables
 
-| Variable                | Uso                                                                                |
-| ----------------------- | ---------------------------------------------------------------------------------- |
-| `MAL_CLIENT_ID`         | Credencial obligatoria de MAL, solo en backend.                                    |
-| `CLIENT_ID`             | Compatibilidad con la antigua variable de Railway.                                 |
-| `PORT`                  | Puerto de API; Railway lo inyecta.                                                 |
-| `CORS_ORIGINS`          | Orígenes permitidos separados por comas; incluye `https://carlospuyana.github.io`. |
-| `VITE_API_URL`          | URL pública del backend: `https://nextanime-server.up.railway.app`.                |
-| `AI_API_KEY`            | Clave opcional OpenAI, exclusivamente del servidor.                                |
-| `AI_MODEL`              | Modelo explícitamente habilitado en esa cuenta.                                    |
-| `AI_MAX_CALLS_PER_HOUR` | Tope global por proceso: 10 por defecto, 50 máximo.                                |
+| Variable                                       | Uso                                                                                          |
+| ---------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| `MAL_CLIENT_ID`                                | Credencial obligatoria de MAL, solo en backend.                                              |
+| `CLIENT_ID`                                    | Compatibilidad con la antigua variable de Railway.                                           |
+| `PORT`                                         | Puerto de API; Railway lo inyecta.                                                           |
+| `CORS_ORIGINS`                                 | Orígenes permitidos separados por comas; incluye `https://carlospuyana.github.io`.           |
+| `VITE_API_URL`                                 | URL pública del backend: `https://nextanime-server.up.railway.app`.                          |
+| `GEMINI_API_KEY`                               | Clave nueva de Gemini, solo en variables privadas de Railway.                                |
+| `GEMINI_ENABLED`                               | `false` en esta publicación: Gemini preparado, desactivado.                                  |
+| `GEMINI_MODEL`                                 | Modelo preparado: `gemini-3.1-flash-lite`.                                                   |
+| `GEMINI_DEPLOYMENT_REGION`                     | `EEA` para esta web; el nivel gratuito no es aplicable a este despliegue público.            |
+| `GEMINI_QUOTA_DB` / `GEMINI_QUOTA_SECRET`      | Almacén persistente y seudonimización necesarios para habilitar llamadas.                    |
+| `GEMINI_DAILY_LIMIT` / `GEMINI_MAX_CONCURRENT` | 10 llamadas/día y 1 concurrente por defecto, además de límites por cliente, perfil y tokens. |
 
 Las variables `VITE_` son públicas: nunca deben contener secretos. `.env`, `.local`, `node_modules` e informes de pruebas quedan fuera de Git. La rama `backup/original-2026-11-01` conserva el historial anterior. La credencial incrustada antiguamente sigue en ese historial y ya no aparece en el nuevo código.
 
@@ -82,11 +85,15 @@ Las variables `VITE_` son públicas: nunca deben contener secretos. `.env`, `.lo
 
 Se recuperan páginas de hasta 1000 entradas hasta agotar la lista. Las afinidades usan únicamente notas explícitas de completados, suavizadas según el volumen de muestras. Los títulos sin nota no expresan rechazo ni aprobación.
 
-El pool externo reúne rankings oficiales por nota, popularidad y temporada actual, con hasta 500 entradas antes de deduplicar. Se combina con Plan to Watch según el origen. Los filtros y exclusiones son obligatorios antes del ranking.
+El pool externo reúne rankings oficiales por nota y popularidad, una página de títulos menos populares y temporadas actuales y de los dos años anteriores: hasta 800 entradas antes de deduplicar. Las tres fuentes adicionales son opcionales. Se combina con Plan to Watch según el origen. Los filtros y exclusiones son obligatorios antes del ranking.
 
 El motor combina afinidad de géneros, similitud de sinopsis con tokens e IDF, preferencias de formato, nota pública, coincidencia de filtros y penalización de similitud para dar variedad. Los pesos están en `DEFAULT_WEIGHTS`. Comprueba metadatos y precuelas; los candidatos no verificables se omiten con un aviso. `rankingScore` es una señal interna, **no una probabilidad**, y no se presenta como porcentaje.
 
-Sin claves de IA, las explicaciones se derivan de datos reales. La integración opcional usa Responses con JSON validado por Zod, caché, timeout, máximo de tokens y presupuesto por proceso. Solo redacta evidencias; no crea títulos ni altera el ranking. Ante cualquier fallo se conserva la explicación determinista. No se ha utilizado IA generativa para las recomendaciones verificadas.
+El modo clásico mantiene ese algoritmo. El modo inteligente preparado utiliza el SDK oficial Google GenAI como segunda etapa: recibe entre 20 y 40 candidatos ya filtrados y un resumen de gustos sin username, y decide la selección y el orden final. Se validan IDs, rangos, cantidad y citas literales; las explicaciones visibles se construyen con motivos acotados y referencias verificadas. Ante errores, cuotas, falta de consentimiento o configuración, se conserva el ranking clásico y se indica el motor realmente utilizado.
+
+**Estado actual: Gemini preparado pero desactivado en producción.** No se realizaron llamadas reales ni gastos. La clave anterior fue revocada por el propietario. La nueva clave puede introducirse en Railway → proyecto **Server NextAnimeJS** → entorno **production** → servicio **NextAnime-** → **Variables** → `GEMINI_API_KEY`. No usar React ni variables `VITE_`. Añadir la clave no activa el servicio: siguen siendo necesarias las condiciones de disponibilidad, audiencia y persistencia descritas en [la integración Gemini](docs/gemini.md).
+
+Consulta [la evaluación comparativa](docs/recommendation-evaluation.md) y [el registro de QA 3.0](docs/gemini-validation.md). No se afirma una mejora de calidad de Gemini sin una evaluación real.
 
 ## Validación
 
