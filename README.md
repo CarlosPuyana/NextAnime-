@@ -1,4 +1,4 @@
-# NextAnime 3.0
+# NextAnime 3.1
 
 Tu próxima historia empieza aquí. Una aplicación de recomendaciones personales basada en tus listas **públicas** de MyAnimeList, con interfaz en español, arte anime original y portadas reales.
 
@@ -13,7 +13,7 @@ Tu próxima historia empieza aquí. Una aplicación de recomendaciones personale
 3. Pulsa **Descubrir mis próximos animes**. Revisa portadas, datos, explicación y enlace real a MAL.
 4. **Recomendar otros** conserva tus filtros y evita repetir títulos durante la sesión. Puedes volver a preferencias o cambiar de perfil.
 
-No se requieren contraseñas ni OAuth, y no se modifica ninguna lista. Solo se recuerda localmente el último nombre utilizado.
+Las recomendaciones clásicas no requieren contraseñas ni OAuth, y no se modifica ninguna lista. Solo se recuerda localmente el último nombre utilizado. El botón **Iniciar sesión** da acceso a la única cuenta administradora para el modo **Gemini experimental**, restringido a los cuatro perfiles predefinidos. Usa sesión firmada de cuatro horas y variables privadas en Railway; Gemini permanece desactivado por los requisitos de uso y persistencia pendientes. [Configuración y límites del acceso privado](docs/admin-access.md).
 
 ## Capturas
 

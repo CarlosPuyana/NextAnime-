@@ -200,12 +200,14 @@ test("responsive layout, keyboard navigation and local last profile", async ({
   await expect(page.getByRole("button", { name: /^SadPuyana/ })).toBeFocused();
   await page.keyboard.press("Shift+Tab");
   await page.keyboard.press("Shift+Tab");
+  await expect(page.getByRole("button", { name: "Iniciar sesión", exact: true })).toBeFocused();
+  await page.keyboard.press("Shift+Tab");
   await expect(
     page.getByRole("button", { name: "NextAnime, cambiar perfil" }),
   ).toBeFocused();
   await page.getByRole("button", { name: /^Nora @Noraaa_12/ }).click();
   await expect(page.getByRole("heading", { name: /Afinemos/ })).toBeVisible();
-  await page.reload();
+  await page.reload({ waitUntil: "domcontentloaded" });
   await expect(
     page.getByRole("button", { name: /Nora @Noraaa_12.*Último perfil/ }),
   ).toBeVisible();
