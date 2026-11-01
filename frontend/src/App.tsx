@@ -33,6 +33,7 @@ import { CUSTOM_PROFILE, PROFILES, resolveProfile } from "./config/profiles";
 import { ProfileAvatar, profileAssetUrl } from "./components/ProfileAvatar";
 import { ProfileCard } from "./components/ProfileCard";
 import { EngineSelector } from "./components/EngineSelector";
+import { AdminAccess } from "./components/AdminAccess";
 
 const defaults: Preferences = { genres: [], source: "both", count: 5 };
 function App() {
@@ -56,6 +57,14 @@ function App() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [mode, setMode] = useState<RecommendationMode>("classic");
   const [aiConsent, setAiConsent] = useState(false);
+  const [admin, setAdmin] = useState(false);
+  const [customSelection, setCustomSelection] = useState(false);
+  useEffect(() => {
+    if (!admin) {
+      setMode("classic");
+      setAiConsent(false);
+    }
+  }, [admin]);
   const [gemini, setGemini] = useState<GeminiAvailability>({
     available: false,
     reason: "loading",
@@ -94,7 +103,7 @@ function App() {
       setGenreError((e as Error).message);
     }
   }
-  async function selectProfile(name: string) {
+  async function selectProfile(name: string, fromCustom = false) {
     if (!/^[A-Za-z0-9_-]{2,16}$/.test(name)) {
       setError("Usa entre 2 y 16 letras, números, guiones o guiones bajos.");
       return;
@@ -113,6 +122,7 @@ function App() {
         `/profiles/${encodeURIComponent(name)}`,
       );
       setProfile(data);
+      setCustomSelection(fromCustom);
       setSeen([]);
       setResult(null);
       setPreferences(defaults);
@@ -216,6 +226,7 @@ function App() {
           <span className="brand-dot" />
         </button>
         <span className="header-caption">MENOS BUSCAR. MÁS SENTIR.</span>
+        <AdminAccess onChange={setAdmin} />
         {profile ? (
           <button className="profile-switch" onClick={changeProfile}>
             <ProfileAvatar identity={identity} small />
@@ -307,7 +318,7 @@ function App() {
                 className="custom-form"
                 onSubmit={(e) => {
                   e.preventDefault();
-                  void selectProfile(username.trim());
+                  void selectProfile(username.trim(), true);
                 }}
               >
                 <label htmlFor="username">Tu nombre de MyAnimeList</label>
@@ -592,16 +603,18 @@ function App() {
                         ))}
                       </div>
                     </section>
-                    <EngineSelector
-                      mode={mode}
-                      consent={aiConsent}
-                      gemini={gemini}
-                      onConsentChange={setAiConsent}
-                      onModeChange={(next) => {
-                        setMode(next);
-                        setAiConsent(false);
-                      }}
-                    />
+                    {admin && !customSelection && identity.id !== "custom" && (
+                      <EngineSelector
+                        mode={mode}
+                        consent={aiConsent}
+                        gemini={gemini}
+                        onConsentChange={setAiConsent}
+                        onModeChange={(next) => {
+                          setMode(next);
+                          setAiConsent(false);
+                        }}
+                      />
+                    )}
                   </div>
                   <aside className="discovery-summary">
                     <span className="summary-art" aria-hidden="true">

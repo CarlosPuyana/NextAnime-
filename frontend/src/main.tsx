@@ -5,6 +5,7 @@ import "./styles.css";
 import "./anime-theme.css";
 import "./profiles.css";
 import "./ai.css";
+import "./admin.css";
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <App />

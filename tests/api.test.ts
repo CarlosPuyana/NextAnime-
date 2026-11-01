@@ -11,7 +11,7 @@ const services: Services = {
 };
 const app = createApp(services);
 describe("API integration", () => {
-  it("exposes safe Gemini availability and falls back without consent or configuration", async () => {
+  it("exposes safe availability and rejects Gemini without an admin session", async () => {
     const capabilities = await request(app).get("/api/capabilities");
     expect(capabilities.body.gemini.available).toBe(false);
     expect(JSON.stringify(capabilities.body)).not.toContain("apiKey");
@@ -22,9 +22,7 @@ describe("API integration", () => {
         preferences: { genres: [], source: "both", count: 5 },
         mode: "gemini",
       });
-    expect(r.status).toBe(200);
-    expect(r.body.engine).toBe("classic");
-    expect(r.body.engineInfo.fallbackReason).toBe("consent");
+    expect(r.status).toBe(401);
     const approved = await request(app)
       .post("/api/recommendations")
       .send({
@@ -37,13 +35,12 @@ describe("API integration", () => {
           version: "2026-11-01",
         },
       });
-    expect(approved.body.engine).toBe("classic");
-    expect(approved.body.engineInfo.fallbackReason).toBe("region_policy");
+    expect(approved.status).toBe(401);
   });
   it("returns health without secrets", async () => {
     const r = await request(app).get("/api/health");
     expect(r.status).toBe(200);
-    expect(r.body).toHaveProperty("version", "3.0.0");
+    expect(r.body).toHaveProperty("version", "3.1.0");
     expect(JSON.stringify(r.body)).not.toContain("CLIENT_ID");
   });
   it.each([

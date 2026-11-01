@@ -3,6 +3,11 @@ import { profile, discoveries, action, romance } from "../fixtures";
 import { analyze, recommend } from "../../backend/src/recommender";
 import { PROFILES } from "../../frontend/src/config/profiles";
 async function mock(page: Page) {
+  await page.route("**/api/admin/session", (r) =>
+    r.fulfill({
+      json: { authenticated: false, configured: true, expiresAt: null },
+    }),
+  );
   await page.route("**/api/capabilities", (r) =>
     r.fulfill({
       json: {
@@ -42,6 +47,45 @@ async function mock(page: Page) {
       ),
     });
   });
+}
+async function loginAdmin(page: Page) {
+  let valid = false;
+  const expiresAt = Date.now() + 4 * 60 * 60_000;
+  await page.route("**/api/admin/session", (r) =>
+    r.fulfill({
+      json: {
+        authenticated:
+          valid &&
+          r.request().headers().authorization === "Bearer browser-test-token",
+        configured: true,
+        expiresAt: valid ? expiresAt : null,
+      },
+    }),
+  );
+  await page.route("**/api/admin/login", (r) => {
+    if (r.request().postDataJSON().password !== "browser-test-password")
+      return r.fulfill({
+        status: 401,
+        json: { error: "Usuario o contraseña incorrectos." },
+      });
+    valid = true;
+    return r.fulfill({ json: { token: "browser-test-token", expiresAt } });
+  });
+  await page.route("**/api/admin/logout", (r) => {
+    valid = false;
+    return r.fulfill({ json: { ok: true } });
+  });
+  await page
+    .getByRole("button", { name: "Iniciar sesión", exact: true })
+    .click();
+  await page.getByLabel("Usuario", { exact: true }).fill("owner");
+  await page
+    .getByLabel("Contraseña", { exact: true })
+    .fill("browser-test-password");
+  await page.getByRole("button", { name: "Entrar", exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: "Administrador", exact: true }),
+  ).toBeVisible();
 }
 test.beforeEach(async ({ page }) => {
   await mock(page);
@@ -220,13 +264,12 @@ test("Gemini mode requires explicit consent and truthful engine indicator", asyn
     }),
   );
   await page.reload();
+  await loginAdmin(page);
   await page.getByRole("button", { name: /^SadPuyana/ }).click();
   await expect(
     page.getByRole("button", { name: /Recomendación clásica/ }),
   ).toHaveAttribute("aria-pressed", "true");
-  await page
-    .getByRole("button", { name: /Recomendación inteligente con Gemini/ })
-    .click();
+  await page.getByRole("button", { name: /Gemini experimental/ }).click();
   await expect(
     page.getByRole("button", { name: /Descubrir mis próximos/ }),
   ).toBeDisabled();
@@ -263,8 +306,8 @@ test("unavailable Gemini leaves classic recommendations fully usable", async ({
 }) => {
   await page.getByRole("button", { name: /^SadPuyana/ }).click();
   await expect(
-    page.getByRole("button", { name: /Recomendación inteligente con Gemini/ }),
-  ).toBeDisabled();
+    page.getByRole("button", { name: /Gemini experimental/ }),
+  ).toHaveCount(0);
   await page.getByRole("button", { name: /Descubrir mis próximos/ }).click();
   await expect(page.locator(".engine-badge")).toHaveText(
     "Recomendación clásica",
@@ -287,10 +330,9 @@ test("fallback is labelled classic even after an intelligent request", async ({
     }),
   );
   await page.reload();
+  await loginAdmin(page);
   await page.getByRole("button", { name: /^SadPuyana/ }).click();
-  await page
-    .getByRole("button", { name: /Recomendación inteligente con Gemini/ })
-    .click();
+  await page.getByRole("button", { name: /Gemini experimental/ }).click();
   await page.getByRole("checkbox").check();
   await page.route("**/api/recommendations", (r) =>
     r.fulfill({
@@ -330,6 +372,73 @@ test("custom profile stays neutral and never inherits a predefined portrait", as
     "background-image",
     "none",
   );
+});
+
+test("admin login survives reload, blocks custom Gemini, and logs out", async ({
+  page,
+}) => {
+  await loginAdmin(page);
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await expect(
+    page.getByRole("button", { name: "Administrador", exact: true }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: /^SadPuyana/ }).click();
+  await expect(
+    page.getByRole("button", { name: /Gemini experimental/ }),
+  ).toBeDisabled();
+  await expect(
+    page.getByText(/Gemini está preparado, pero no se activa/),
+  ).toBeVisible();
+  await page.getByRole("button", { name: /NextAnime, cambiar perfil/ }).click();
+  await page.getByRole("button", { name: /Otro usuario/ }).click();
+  await page.getByLabel("Tu nombre de MyAnimeList").fill("Guest_123");
+  await page.getByRole("button", { name: "Continuar" }).click();
+  await expect(page.getByRole("heading", { name: /Afinemos/ })).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: /Gemini experimental/ }),
+  ).toHaveCount(0);
+  await page
+    .getByRole("button", { name: "Administrador", exact: true })
+    .click();
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= window.innerWidth,
+    ),
+  ).toBe(true);
+  await page
+    .getByRole("button", { name: "Cerrar sesión", exact: true })
+    .click();
+  await expect(
+    page.getByRole("button", { name: "Iniciar sesión", exact: true }),
+  ).toBeVisible();
+  expect(
+    await page.evaluate(() => sessionStorage.getItem("nextanime:admin")),
+  ).toBeNull();
+});
+
+test("login modal displays errors and closes without retaining the password", async ({
+  page,
+}) => {
+  await page.route("**/api/admin/login", (r) =>
+    r.fulfill({
+      status: 401,
+      json: { error: "Usuario o contraseña incorrectos." },
+    }),
+  );
+  await page
+    .getByRole("button", { name: "Iniciar sesión", exact: true })
+    .click();
+  await page.getByLabel("Usuario", { exact: true }).fill("owner");
+  await page.getByLabel("Contraseña", { exact: true }).fill("bad-password");
+  await page.getByRole("button", { name: "Entrar", exact: true }).click();
+  await expect(page.getByRole("alert")).toHaveText(
+    "Usuario o contraseña incorrectos.",
+  );
+  await expect(page.getByLabel("Contraseña", { exact: true })).toHaveValue("");
+  await page
+    .getByRole("button", { name: "Cerrar acceso de administrador" })
+    .click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
 });
 
 test("selection has an explicit state during profile errors", async ({

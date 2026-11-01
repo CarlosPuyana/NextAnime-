@@ -46,7 +46,7 @@ export function EngineSelector({
           onClick={() => onModeChange("gemini")}
         >
           <Sparkles size={20} />
-          <strong>Recomendación inteligente con Gemini</strong>
+          <strong>Gemini experimental</strong>
           <span>
             Compara un resumen de tus gustos y reordena candidatos ya
             verificados.

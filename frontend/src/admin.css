@@ -1,0 +1,79 @@
+.admin-access {
+  margin-left: auto;
+}
+.admin-trigger {
+  color: var(--muted);
+  font-size: 11px;
+  padding: 8px;
+  white-space: nowrap;
+}
+.admin-trigger:hover {
+  color: var(--text);
+}
+.admin-dialog {
+  width: min(440px, calc(100vw - 32px));
+  max-height: calc(100dvh - 40px);
+  overflow: auto;
+  background: #19191f;
+  color: #f4f0f6;
+  border: 1px solid #4b3b50;
+  border-radius: 16px;
+  padding: 32px;
+}
+.admin-dialog::backdrop {
+  background: #08080cbb;
+  backdrop-filter: blur(5px);
+}
+.admin-dialog h2 {
+  font-size: 22px;
+  padding-right: 20px;
+}
+.admin-dialog p {
+  color: #c3b9ca;
+  font-size: 13px;
+  line-height: 1.7;
+}
+.admin-dialog form {
+  display: grid;
+  gap: 12px;
+}
+.admin-dialog label {
+  font-size: 13px;
+}
+.admin-dialog input {
+  width: 100%;
+  background: #101014;
+  color: #fff;
+  border: 1px solid #65516b;
+  border-radius: 8px;
+  padding: 12px;
+  font: inherit;
+}
+.admin-dialog .primary {
+  margin-top: 12px;
+}
+.admin-dialog [role="alert"] {
+  color: #ffabbf;
+}
+.admin-dialog .admin-notice {
+  color: #f3c87c;
+}
+.admin-close {
+  position: absolute;
+  right: 12px;
+  top: 12px;
+  padding: 6px;
+  color: #c3b9ca;
+}
+@media (max-width: 700px) {
+  .admin-trigger {
+    font-size: 10px;
+    padding: 5px;
+  }
+  .admin-dialog {
+    padding: 24px;
+  }
+  .header {
+    gap: 8px;
+  }
+}

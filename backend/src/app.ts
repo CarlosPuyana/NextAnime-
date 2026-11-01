@@ -7,6 +7,7 @@ import { ApiError } from "./errors.js";
 import * as providers from "./providers.js";
 import { analyze, eligible, rankCandidates } from "./recommender.js";
 import { GeminiRankingService, type RankingService } from "./ai.js";
+import { AdminAuth } from "./admin.js";
 import type { Anime, Genre, Profile } from "../../shared/types.js";
 export interface Services {
   loadProfile: (username: string) => Promise<Profile>;
@@ -35,6 +36,7 @@ const inputSchema = z.object({
 export function createApp(
   services: Services = providers,
   ranking: RankingService = new GeminiRankingService(),
+  admin = new AdminAuth(),
 ) {
   const app = express();
   app.disable("x-powered-by");
@@ -58,7 +60,7 @@ export function createApp(
   app.get("/api/health", (_req, res) =>
     res.json({
       status: "ok",
-      version: "3.0.0",
+      version: "3.1.0",
       malConfigured: !!(process.env.MAL_CLIENT_ID || process.env.CLIENT_ID),
       aiConfigured: ranking.status().available,
       gemini: ranking.status(),
@@ -79,6 +81,49 @@ export function createApp(
   app.get("/api/genres", async (_req, res) =>
     res.json(await services.loadGenres()),
   );
+  const loginLimit = rateLimit({
+    windowMs: 15 * 60_000,
+    limit: 5,
+    standardHeaders: "draft-8",
+    legacyHeaders: false,
+    message: {
+      error:
+        "Demasiados intentos. Espera 15 minutos antes de volver a iniciar sesión.",
+    },
+  });
+  const globalLoginLimit = rateLimit({
+    windowMs: 15 * 60_000,
+    limit: 20,
+    keyGenerator: () => "admin-login",
+    standardHeaders: "draft-8",
+    legacyHeaders: false,
+    message: {
+      error: "El acceso está temporalmente limitado. Inténtalo más tarde.",
+    },
+  });
+  app.post(
+    "/api/admin/login",
+    loginLimit,
+    globalLoginLimit,
+    async (req, res) => {
+      const input = z
+        .object({
+          username: z.string().min(1).max(64),
+          password: z.string().min(1).max(256),
+        })
+        .parse(req.body);
+      res
+        .set("Cache-Control", "no-store")
+        .json(await admin.login(input.username, input.password));
+    },
+  );
+  app.get("/api/admin/session", (req, res) =>
+    res.set("Cache-Control", "no-store").json(admin.session(req)),
+  );
+  app.post("/api/admin/logout", (req, res) => {
+    admin.logout(req);
+    res.set("Cache-Control", "no-store").json({ ok: true });
+  });
   app.get("/api/capabilities", (_req, res) =>
     res
       .set("Cache-Control", "no-store")
@@ -106,6 +151,7 @@ export function createApp(
       const { username, preferences, seen, mode, consent } = inputSchema.parse(
         req.body,
       );
+      if (mode === "gemini") admin.requireGemini(req, username);
       const profile = await services.loadProfile(username);
       const warnings: string[] = [];
       const candidates =
@@ -164,6 +210,7 @@ export function createApp(
         warnings.push(
           `${failed} candidatos no pudieron verificarse y se han omitido.`,
         );
+      if (mode === "gemini") admin.requireGemini(req, username);
       const result = await ranking.rank({
         profile,
         candidates: verified,
