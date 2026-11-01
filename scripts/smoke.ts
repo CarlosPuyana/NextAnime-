@@ -94,6 +94,19 @@ try {
   } as any);
   await mobile.goto(url);
   await mobile.getByRole("heading", { name: /Cada gusto/ }).waitFor();
+  await mobile.evaluate(
+    async (assets) => {
+      await document.fonts.ready;
+      await Promise.all(
+        assets.map((src) => {
+          const img = new Image();
+          img.src = new URL(src, location.href).href;
+          return img.decode();
+        }),
+      );
+    },
+    ["art/nextanime-world.webp", ...PROFILES.map((p) => p.avatarAsset!)],
+  );
   await mobile.screenshot({
     path: `${output}/movil.png`,
     fullPage: true,

@@ -19,4 +19,13 @@ Las capturas se revisaron visualmente: tarjetas alineadas, retratos coherentes, 
 
 ## Producción
 
-Se registrará la comprobación de Pages y del backend cuando termine la publicación de esta mejora. Los tests con fixtures no se confunden con validación real.
+Verificada el 1 de noviembre de 2026, después de publicar el commit de aplicación `d66cebca77259b5ef53191a1dbfcb04a16977a15`:
+
+- [GitHub Actions](https://github.com/CarlosPuyana/NextAnime-/actions/runs/41336278708): compilación, lint, tests y publicación completados con éxito.
+- [Pages](https://carlospuyana.github.io/NextAnime-/): HTTP 200; los cuatro retratos nuevos devuelven HTTP 200 y sus rutas respetan la base del repositorio.
+- [Railway](https://nextanime-server.up.railway.app/api/health): HTTP 200 y versión 2.0.0; MAL configurado. Despliegue `df0a00fd-3d21-4170-920d-a81f0c28d676` en SUCCESS. Se conservan servicio y dominio.
+- Consulta real de Anto: username `Antoniioman`, 401 entradas. SadPuyana y Nora también se consultaron mediante el recorrido público.
+- Recorrido Playwright sobre Pages, sin mocks: perfil y tema, preferencias, cinco recomendaciones con portadas y links reales, otra ronda sin repeticiones, vuelta a preferencias y recarga. Móvil: las tres pantallas, con la identidad de Nora en preferencias y resultados. Sin desbordamiento horizontal ni errores JavaScript.
+- Las capturas finales esperan a que carguen los retratos para evitar registrar un estado intermedio de la red. Se revisaron también las capturas locales de las tres pantallas en móvil.
+
+No quedan bloqueos funcionales o de despliegue. No se ha alterado el recomendador ni el backend. Los tests con fixtures se distinguen expresamente del recorrido real de producción.
