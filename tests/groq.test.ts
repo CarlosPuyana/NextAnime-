@@ -42,7 +42,16 @@ const output = (context: Parameters<GeminiTransport>[0]) => ({
   recommendations: context.candidates
     .slice(-Math.min(3, context.candidates.length))
     .reverse()
-    .map((a, i) => ({ animeId: a.animeId, rank: i + 1, reason: "explore" })),
+    .map((a, i) => ({
+      animeId: a.animeId,
+      rank: i + 1,
+      reason: [
+        "Puede encajarte por la aventura de su protagonista y los vínculos con sus compañeros. Es una propuesta exploratoria basada en las sinopsis de tu lista.",
+        "Podría interesarte el contraste entre las metas del protagonista y las dificultades del camino. Su premisa permite explorar el coste personal de seguir adelante.",
+        "La atmósfera de misterio puede encajar con tu interés por descubrir mundos junto a sus personajes. Es una conexión tentativa basada en las sinopsis disponibles.",
+      ][i],
+      favoriteAnimeId: context.taste.positive[0]?.animeId ?? null,
+    })),
 });
 const good: GeminiTransport = async (context) => ({
   text: JSON.stringify(output(context)),
@@ -125,30 +134,37 @@ describe("Groq integration", () => {
     expect((await service.rank(i)).engineInfo?.cacheHit).toBe(true);
     expect(call).toHaveBeenCalledOnce();
   });
-  it.each(["foreign", "duplicate", "rank", "partial", "invented", "spoiler"])(
-    "rejects %s output with classic fallback",
-    async (kind) => {
-      const call: GeminiTransport = async (context) => {
-        const data = output(context);
-        if (kind === "foreign") data.recommendations[0].animeId = 999999;
-        if (kind === "duplicate")
-          data.recommendations[0].animeId = data.recommendations[1].animeId;
-        if (kind === "rank") data.recommendations[0].rank = 3;
-        if (kind === "partial") data.recommendations.pop();
-        if (kind === "invented")
-          data.recommendations[0].reason = "Una historia de vampiros inventada";
-        if (kind === "spoiler")
-          data.recommendations[0].reason = "El protagonista muere al final";
-        return { text: JSON.stringify(data) };
-      };
-      const result = await new GroqRankingService(config(), call, quota()).rank(
-        input(),
-      );
-      expect(result.engine).toBe("classic");
-      expect(result.engineInfo?.fallbackReason).toBe("invalid_response");
-    },
-  );
-  it("rejects unsupported factual reasons, not merely invalid JSON", () => {
+  it.each([
+    "foreign",
+    "duplicate",
+    "rank",
+    "partial",
+    "invented",
+    "spoiler",
+    "repeated_reason",
+  ])("rejects %s output with classic fallback", async (kind) => {
+    const call: GeminiTransport = async (context) => {
+      const data = output(context);
+      if (kind === "foreign") data.recommendations[0].animeId = 999999;
+      if (kind === "duplicate")
+        data.recommendations[0].animeId = data.recommendations[1].animeId;
+      if (kind === "rank") data.recommendations[0].rank = 3;
+      if (kind === "partial") data.recommendations.pop();
+      if (kind === "invented") data.recommendations[0].favoriteAnimeId = 999999;
+      if (kind === "spoiler")
+        data.recommendations[0].reason =
+          "Puede interesarte porque el protagonista muere al final y esto cambia por completo el desenlace de la historia.";
+      if (kind === "repeated_reason")
+        data.recommendations[1].reason = data.recommendations[0].reason;
+      return { text: JSON.stringify(data) };
+    };
+    const result = await new GroqRankingService(config(), call, quota()).rank(
+      input(),
+    );
+    expect(result.engine).toBe("classic");
+    expect(result.engineInfo?.fallbackReason).toBe("invalid_response");
+  });
+  it("rejects invented favorites and renders real favorite titles and personal scores", () => {
     const i = input(),
       context = buildGroqContext(
         i.profile,
@@ -156,11 +172,12 @@ describe("Groq integration", () => {
         i.preferences,
       );
     const data = output(context);
-    data.recommendations[0].reason = "uncertain";
-    const candidate = context.candidates.find(
-      (a) => a.animeId === data.recommendations[0].animeId,
-    ) as any;
-    candidate.allowedReasons = ["explore"];
+    const valid = validateGroqRanking(JSON.stringify(data), context);
+    expect(valid[0].explanation).toContain(context.taste.positive[0].title);
+    expect(valid[0].explanation).toContain(
+      `${context.taste.positive[0].personalScore}/10`,
+    );
+    data.recommendations[0].favoriteAnimeId = 999999;
     expect(() => validateGroqRanking(JSON.stringify(data), context)).toThrow();
   });
   it("does not call the provider without consent, key, or the initial count of three", async () => {

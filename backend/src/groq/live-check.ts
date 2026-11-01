@@ -61,6 +61,7 @@ export async function checkGroqRecommendation(ranking: RankingService) {
         selected: result.items?.map((item: any) => ({
           id: item.anime.id,
           title: item.anime.title,
+          explanation: item.explanation,
         })),
         warnings: result.warnings,
       }),
