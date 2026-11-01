@@ -128,16 +128,16 @@ export class AdminAuth {
     const value = this.payload(req);
     if (value) this.sessions.delete(value.id);
   }
-  requireGemini(req: Request, username: string) {
+  requireGemini(req: Request, username: string, provider = "Gemini") {
     if (!this.payload(req))
       throw new ApiError(
         401,
-        "Inicia sesión como administrador para utilizar Gemini experimental.",
+        `Inicia sesión como administrador para utilizar ${provider} experimental.`,
       );
     if (!ADMIN_PROFILES.has(username))
       throw new ApiError(
         403,
-        "Gemini experimental solo admite los cuatro perfiles predefinidos.",
+        `${provider} experimental solo admite los cuatro perfiles predefinidos.`,
       );
   }
 }

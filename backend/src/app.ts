@@ -6,7 +6,8 @@ import { z } from "zod";
 import { ApiError } from "./errors.js";
 import * as providers from "./providers.js";
 import { analyze, eligible, rankCandidates } from "./recommender.js";
-import { GeminiRankingService, type RankingService } from "./ai.js";
+import type { RankingService } from "./ai.js";
+import { ExperimentalRankingService } from "./groq/ranking.js";
 import { AdminAuth } from "./admin.js";
 import type { Anime, Genre, Profile } from "../../shared/types.js";
 export interface Services {
@@ -24,7 +25,7 @@ const inputSchema = z.object({
     count: z.union([z.literal(3), z.literal(5), z.literal(10), z.literal(20)]),
   }),
   seen: z.array(z.number().int().positive()).max(10000).default([]),
-  mode: z.enum(["classic", "gemini"]).default("classic"),
+  mode: z.enum(["classic", "gemini", "groq"]).default("classic"),
   consent: z
     .object({
       externalProcessing: z.literal(true),
@@ -35,7 +36,7 @@ const inputSchema = z.object({
 });
 export function createApp(
   services: Services = providers,
-  ranking: RankingService = new GeminiRankingService(),
+  ranking: RankingService = new ExperimentalRankingService(),
   admin = new AdminAuth(),
 ) {
   const app = express();
@@ -60,10 +61,11 @@ export function createApp(
   app.get("/api/health", (_req, res) =>
     res.json({
       status: "ok",
-      version: "3.1.0",
+      version: "3.2.0",
       malConfigured: !!(process.env.MAL_CLIENT_ID || process.env.CLIENT_ID),
       aiConfigured: ranking.status().available,
-      gemini: ranking.status(),
+      ai: ranking.status(),
+      gemini: ranking.legacyStatus?.() ?? ranking.status(),
     }),
   );
   app.use(
@@ -127,7 +129,11 @@ export function createApp(
   app.get("/api/capabilities", (_req, res) =>
     res
       .set("Cache-Control", "no-store")
-      .json({ gemini: ranking.status(), consentVersion: "2026-11-01" }),
+      .json({
+        ai: ranking.status(),
+        gemini: ranking.legacyStatus?.() ?? ranking.status(),
+        consentVersion: "2026-11-01",
+      }),
   );
   app.get("/api/profiles/:username", async (req, res) => {
     const username = usernameSchema.parse(req.params.username);
@@ -151,7 +157,8 @@ export function createApp(
       const { username, preferences, seen, mode, consent } = inputSchema.parse(
         req.body,
       );
-      if (mode === "gemini") admin.requireGemini(req, username);
+      if (mode !== "classic")
+        admin.requireGemini(req, username, mode === "groq" ? "Groq" : "Gemini");
       const profile = await services.loadProfile(username);
       const warnings: string[] = [];
       const candidates =
@@ -202,7 +209,11 @@ export function createApp(
         }
         if (
           verified.length >=
-          (mode === "gemini" ? 40 : Math.max(preferences.count * 2, 30))
+          (mode === "groq"
+            ? 12
+            : mode === "gemini"
+              ? 40
+              : Math.max(preferences.count * 2, 30))
         )
           break;
       }
@@ -210,7 +221,8 @@ export function createApp(
         warnings.push(
           `${failed} candidatos no pudieron verificarse y se han omitido.`,
         );
-      if (mode === "gemini") admin.requireGemini(req, username);
+      if (mode !== "classic")
+        admin.requireGemini(req, username, mode === "groq" ? "Groq" : "Gemini");
       const result = await ranking.rank({
         profile,
         candidates: verified,

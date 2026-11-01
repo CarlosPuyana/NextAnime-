@@ -136,7 +136,22 @@ export interface HybridInput {
 }
 export interface RankingService {
   status(): GeminiAvailability;
+  legacyStatus?(): GeminiAvailability;
   rank(input: HybridInput): Promise<Results>;
+}
+export interface RankingProvider {
+  id: "gemini" | "groq";
+  label: string;
+  candidateLimit: number;
+  instruction: string;
+  buildContext: typeof buildContext;
+  validate: typeof validateRanking;
+  inputTokens: (context: GeminiContext) => number;
+  explain: (
+    item: ReturnType<typeof validateRanking>[number],
+    context: GeminiContext,
+  ) => string;
+  cooldown: (error: unknown) => number;
 }
 const safeText = (s: string) =>
   !/(https?:|<[^>]+>|\b(?:muere|asesino es|al final|desenlace|dies|final twist)\b)/i.test(
@@ -208,11 +223,18 @@ export function validateRanking(text: string, context: GeminiContext) {
   return parsed.recommendations.sort((a, b) => a.rank - b.rank);
 }
 const failureCategory = (error: unknown): string => {
+  if (
+    (error as Error)?.name === "TypeError" &&
+    /fetch failed/i.test((error as Error).message)
+  )
+    return "network";
+  if ((error as { code?: string })?.code === "model_not_found") return "model";
   const status = Number(
     (error as { status?: number; code?: number })?.status ??
       (error as { code?: number })?.code,
   );
   if (status === 429) return "quota";
+  if (status === 504) return "provider_timeout";
   if (status === 401 || status === 403) return "credential";
   if (status === 404) return "model";
   if (
@@ -229,6 +251,12 @@ const failureCategory = (error: unknown): string => {
   return "provider";
 };
 const fallbackMessages: Record<string, string> = {
+  network:
+    "No se pudo conectar con el proveedor de IA. Hemos utilizado la recomendación clásica.",
+  count:
+    "La IA experimental admite tres recomendaciones en esta versión. Se ha utilizado el modo clásico para respetar tu cantidad.",
+  provider_timeout:
+    "El proveedor devolvió un error 504 de tiempo de espera. Hemos utilizado la recomendación clásica.",
   consent:
     "No se compartieron datos con Google: falta el consentimiento vigente y la confirmación de mayoría de edad.",
   quota:
@@ -263,6 +291,7 @@ export class GeminiRankingService implements RankingService {
     private now = () => Date.now(),
     private log: (category: string) => void = (category) =>
       console.warn(JSON.stringify({ event: "gemini_fallback", category })),
+    private provider?: RankingProvider,
   ) {
     this.store = store;
     this.cache = new Cache(config.cacheTtlMs, 100);
@@ -288,9 +317,13 @@ export class GeminiRankingService implements RankingService {
       ...classic,
       warnings: [
         ...classic.warnings,
-        message ??
+        (
+          message ??
           fallbackMessages[reason] ??
-          "Gemini no está disponible. Se mantiene el modo clásico.",
+          "Gemini no está disponible. Se mantiene el modo clásico."
+        )
+          .replaceAll("Gemini", this.provider?.label ?? "Gemini")
+          .replaceAll("Google", this.provider?.label ?? "Google"),
       ],
       engineInfo: {
         ...classic.engineInfo!,
@@ -299,6 +332,8 @@ export class GeminiRankingService implements RankingService {
       },
     });
     if (input.mode === "classic" || !classic.items.length) return classic;
+    if (this.provider?.id === "groq" && input.preferences.count !== 3)
+      return fallback("count");
     if (
       input.consent?.externalProcessing !== true ||
       input.consent?.adult !== true ||
@@ -312,12 +347,18 @@ export class GeminiRankingService implements RankingService {
       input.candidates,
       input.preferences,
       input.seen,
-      input.preferences.count === 20 ? 40 : 28,
+      this.provider?.candidateLimit ??
+        (input.preferences.count === 20 ? 40 : 28),
     );
-    const context = buildContext(input.profile, candidates, input.preferences);
+    const context = (this.provider?.buildContext ?? buildContext)(
+      input.profile,
+      candidates,
+      input.preferences,
+    );
     const inputUpperBound =
+      this.provider?.inputTokens(context) ??
       Buffer.byteLength(SYSTEM_INSTRUCTION + JSON.stringify(context), "utf8") +
-      1024;
+        1024;
     if (inputUpperBound > 32000) return fallback("context");
     const pseudonym = (kind: string, value: string) =>
       createHmac("sha256", this.config.quotaSecret)
@@ -394,7 +435,10 @@ export class GeminiRankingService implements RankingService {
           inputTokens: response.inputTokens,
           outputTokens: response.outputTokens,
         };
-        const ordered = validateRanking(response.text, context);
+        const ordered = (this.provider?.validate ?? validateRanking)(
+          response.text,
+          context,
+        );
         const map = new Map(candidates.map((c) => [c.anime.id, c]));
         const items = ordered.map((item) => {
           const original = map.get(item.animeId)!;
@@ -423,8 +467,9 @@ export class GeminiRankingService implements RankingService {
             )
             .slice(0, 2);
           // Do not publish arbitrary model prose: render only bounded facets and verified input references.
-          const explanation =
-            context.taste.statistics.confidence === "low"
+          const explanation = this.provider
+            ? this.provider.explain(item, context)
+            : context.taste.statistics.confidence === "low"
               ? "Hay pocas valoraciones para conocer tus gustos con confianza. La sinopsis sugiere " +
                 item.reasons.map((r) => r.toLowerCase()).join(" y ") +
                 "."
@@ -443,11 +488,11 @@ export class GeminiRankingService implements RankingService {
         const result: Results = {
           ...classic,
           items,
-          engine: "gemini",
+          engine: this.provider?.id ?? "gemini",
           explanationMode: "generative",
           engineInfo: {
-            requested: "gemini",
-            used: "gemini",
+            requested: input.mode,
+            used: this.provider?.id ?? "gemini",
             model: this.config.model,
             cacheHit: false,
             latencyMs: this.now() - start,
@@ -466,7 +511,7 @@ export class GeminiRankingService implements RankingService {
         try {
           const parsed = JSON.parse((error as Error).message);
           const code = parsed?.error?.status;
-          if (typeof code === "string" && /^[A-Z_]{1,60}$/.test(code))
+          if (typeof code === "string" && /^[A-Za-z0-9_]{1,80}$/.test(code))
             providerCode = code;
         } catch {
           /* Never publish unfiltered provider text, URLs or credentials. */
@@ -475,11 +520,13 @@ export class GeminiRankingService implements RankingService {
         try {
           this.store!.failure(
             this.now(),
-            category === "quota"
-              ? 3600000
-              : ["credential", "model"].includes(category)
-                ? 86400000
-                : 0,
+            this.provider
+              ? this.provider.cooldown(error)
+              : category === "quota"
+                ? 3600000
+                : ["credential", "model"].includes(category)
+                  ? 86400000
+                  : 0,
           );
         } catch {
           /* Fail closed on later store access. */
@@ -488,7 +535,7 @@ export class GeminiRankingService implements RankingService {
         if (providerStatus)
           result.warnings = result.warnings.map(
             (message) =>
-              `${message} Google respondió con HTTP ${providerStatus}${providerCode ? ` (${providerCode})` : ""}.`,
+              `${message} ${this.provider?.label ?? "Google"} respondió con HTTP ${providerStatus}${providerCode ? ` (${providerCode})` : ""}.`,
           );
         return {
           ...result,

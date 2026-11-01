@@ -41,9 +41,22 @@ export class SqliteQuotaStore implements QuotaStore {
       [`client:${day}:${client}`, 1, limits.clientLimit],
       [`minute:${Math.floor(now / 60000)}`, 1, limits.minuteLimit],
     ];
+    if (limits.minuteTokens)
+      buckets.push([`minute:tokens:${now}`, tokens, limits.minuteTokens]);
     this.db.exec("BEGIN IMMEDIATE");
     try {
       this.db.prepare("DELETE FROM counters WHERE expires <= ?").run(now);
+      if (limits.minuteTokens) {
+        const total = this.db
+          .prepare(
+            "SELECT COALESCE(SUM(value),0) AS total FROM counters WHERE key LIKE 'minute:tokens:%' AND expires > ?",
+          )
+          .get(now + 60000) as { total: number };
+        if (total.total + tokens > limits.minuteTokens) {
+          this.db.exec("ROLLBACK");
+          return false;
+        }
+      }
       const read = this.db.prepare("SELECT value FROM counters WHERE key=?");
       if (
         buckets.some(

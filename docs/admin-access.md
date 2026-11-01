@@ -1,5 +1,7 @@
 # NextAnime 3.1 · acceso privado
 
+**Actualización 3.2:** el login se mantiene; el proveedor principal pasa a [Groq](groq.md), con Gemini desactivado. Este documento conserva el historial de las pruebas Gemini de 3.1.
+
 El botón **Iniciar sesión** abre el acceso de la única cuenta de administrador. Las variables privadas son `ADMIN_USERNAME`, `ADMIN_PASSWORD_HASH` y `ADMIN_SESSION_SECRET`. La herramienta local `scripts/setup-admin.ts` permite elegir una contraseña de 12–128 caracteres y envía únicamente su hash PBKDF2-SHA256, con sal aleatoria y 600.000 iteraciones, a Railway. La contraseña no se guarda en archivos ni registros. No hay registro de usuarios ni recuperación de contraseña.
 
 La sesión dura cuatro horas. El token firmado se envía mediante `Authorization: Bearer`, se conserva en memoria/sessionStorage de la pestaña y no depende de cookies entre dominios. El backend verifica firma, caducidad y sesión vigente antes de consultar MAL y nuevamente antes de invocar el ranker Gemini. Cerrar sesión revoca el token; un reinicio también termina las sesiones. El servicio existente tiene una réplica. El login limita cinco intentos por IP y veinte globales cada quince minutos; estos límites en memoria se reinician con el proceso. No se registran cuerpos ni cabeceras de autenticación.

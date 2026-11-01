@@ -124,8 +124,8 @@ export function AdminAccess({
         <h2 id="admin-title">Acceso de administrador</h2>
         {session.authenticated ? (
           <>
-            <p>
-              Sesión privada activa. Gemini experimental solo admite los cuatro
+          <p>
+            Sesión privada activa. La IA experimental solo admite los cuatro
               perfiles predefinidos y depende de la disponibilidad del backend.
             </p>
             <button

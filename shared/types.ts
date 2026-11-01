@@ -26,13 +26,14 @@ export interface Profile {
   fetchedAt: string;
 }
 export type Source = "both" | "pending" | "discover";
-export type RecommendationMode = "classic" | "gemini";
+export type RecommendationMode = "classic" | "gemini" | "groq";
 export interface AIConsent {
   externalProcessing: true;
   adult: true;
   version: "2026-11-01";
 }
 export interface GeminiAvailability {
+  provider?: "gemini" | "groq";
   available: boolean;
   reason: string;
   message: string;

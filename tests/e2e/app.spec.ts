@@ -200,7 +200,9 @@ test("responsive layout, keyboard navigation and local last profile", async ({
   await expect(page.getByRole("button", { name: /^SadPuyana/ })).toBeFocused();
   await page.keyboard.press("Shift+Tab");
   await page.keyboard.press("Shift+Tab");
-  await expect(page.getByRole("button", { name: "Iniciar sesión", exact: true })).toBeFocused();
+  await expect(
+    page.getByRole("button", { name: "Iniciar sesión", exact: true }),
+  ).toBeFocused();
   await page.keyboard.press("Shift+Tab");
   await expect(
     page.getByRole("button", { name: "NextAnime, cambiar perfil" }),
@@ -250,7 +252,7 @@ test("empty recommendations explain limitations without invalid filler", async (
   await expect(page.getByText(/Encontramos 0 de las 5/)).toBeVisible();
 });
 
-test("Gemini mode requires explicit consent and truthful engine indicator", async ({
+test("Groq mode requires explicit consent and truthful engine indicator", async ({
   page,
 }) => {
   await page.route("**/api/capabilities", (r) =>
@@ -271,15 +273,15 @@ test("Gemini mode requires explicit consent and truthful engine indicator", asyn
   await expect(
     page.getByRole("button", { name: /Recomendación clásica/ }),
   ).toHaveAttribute("aria-pressed", "true");
-  await page.getByRole("button", { name: /Gemini experimental/ }).click();
+  await page.getByRole("button", { name: /IA experimental — Groq/ }).click();
   await expect(
     page.getByRole("button", { name: /Descubrir mis próximos/ }),
   ).toBeDisabled();
-  await expect(page.getByText(/Google recibirá hasta 40/)).toBeVisible();
+  await expect(page.getByText(/Groq recibirá hasta 12/)).toBeVisible();
   await page.getByRole("checkbox", { name: /Soy mayor de 18/ }).check();
   await page.route("**/api/recommendations", (r) => {
     const body = r.request().postDataJSON();
-    expect(body.mode).toBe("gemini");
+    expect(body.mode).toBe("groq");
     expect(body.consent.externalProcessing).toBe(true);
     return r.fulfill({
       json: {
@@ -289,26 +291,26 @@ test("Gemini mode requires explicit consent and truthful engine indicator", asyn
           body.preferences,
           body.seen,
         ),
-        engine: "gemini",
+        engine: "groq",
         explanationMode: "generative",
       },
     });
   });
   await page.getByRole("button", { name: /Descubrir mis próximos/ }).click();
   await expect(page.locator(".engine-badge")).toHaveText(
-    "Recomendación con Gemini",
+    "Recomendado con IA · Groq",
   );
   await page.getByRole("button", { name: "Cambiar preferencias" }).click();
   await page.getByRole("button", { name: /Recomendación clásica/ }).click();
   await expect(page.getByRole("checkbox")).toHaveCount(0);
 });
 
-test("unavailable Gemini leaves classic recommendations fully usable", async ({
+test("unavailable Groq leaves classic recommendations fully usable", async ({
   page,
 }) => {
   await page.getByRole("button", { name: /^SadPuyana/ }).click();
   await expect(
-    page.getByRole("button", { name: /Gemini experimental/ }),
+    page.getByRole("button", { name: /IA experimental — Groq/ }),
   ).toHaveCount(0);
   await page.getByRole("button", { name: /Descubrir mis próximos/ }).click();
   await expect(page.locator(".engine-badge")).toHaveText(
@@ -334,7 +336,7 @@ test("fallback is labelled classic even after an intelligent request", async ({
   await page.reload();
   await loginAdmin(page);
   await page.getByRole("button", { name: /^SadPuyana/ }).click();
-  await page.getByRole("button", { name: /Gemini experimental/ }).click();
+  await page.getByRole("button", { name: /IA experimental — Groq/ }).click();
   await page.getByRole("checkbox").check();
   await page.route("**/api/recommendations", (r) =>
     r.fulfill({
@@ -386,7 +388,7 @@ test("admin login survives reload, blocks custom Gemini, and logs out", async ({
   ).toBeVisible();
   await page.getByRole("button", { name: /^SadPuyana/ }).click();
   await expect(
-    page.getByRole("button", { name: /Gemini experimental/ }),
+    page.getByRole("button", { name: /IA experimental — Groq/ }),
   ).toBeDisabled();
   await expect(
     page.getByText(/Gemini está preparado, pero no se activa/),
@@ -397,7 +399,7 @@ test("admin login survives reload, blocks custom Gemini, and logs out", async ({
   await page.getByRole("button", { name: "Continuar" }).click();
   await expect(page.getByRole("heading", { name: /Afinemos/ })).toBeVisible();
   await expect(
-    page.getByRole("button", { name: /Gemini experimental/ }),
+    page.getByRole("button", { name: /IA experimental — Groq/ }),
   ).toHaveCount(0);
   await page
     .getByRole("button", { name: "Administrador", exact: true })

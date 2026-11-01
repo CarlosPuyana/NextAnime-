@@ -40,7 +40,7 @@ describe("API integration", () => {
   it("returns health without secrets", async () => {
     const r = await request(app).get("/api/health");
     expect(r.status).toBe(200);
-    expect(r.body).toHaveProperty("version", "3.1.0");
+    expect(r.body).toHaveProperty("version", "3.2.0");
     expect(JSON.stringify(r.body)).not.toContain("CLIENT_ID");
   });
   it.each([

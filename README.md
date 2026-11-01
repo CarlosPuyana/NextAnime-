@@ -1,4 +1,4 @@
-# NextAnime 3.1
+# NextAnime 3.2
 
 Tu próxima historia empieza aquí. Una aplicación de recomendaciones personales basada en tus listas **públicas** de MyAnimeList, con interfaz en español, arte anime original y portadas reales.
 
@@ -13,7 +13,7 @@ Tu próxima historia empieza aquí. Una aplicación de recomendaciones personale
 3. Pulsa **Descubrir mis próximos animes**. Revisa portadas, datos, explicación y enlace real a MAL.
 4. **Recomendar otros** conserva tus filtros y evita repetir títulos durante la sesión. Puedes volver a preferencias o cambiar de perfil.
 
-Las recomendaciones clásicas no requieren contraseñas ni OAuth, y no se modifica ninguna lista. Solo se recuerda localmente el último nombre utilizado. El botón **Iniciar sesión** da acceso a la única cuenta administradora para el modo **Gemini experimental**, restringido a los cuatro perfiles predefinidos. Usa sesión firmada de cuatro horas y variables privadas en Railway. El modo personal permite hasta seis pruebas diarias por ejecución del proceso, con consentimiento y fallback clásico. [Configuración y límites del acceso privado](docs/admin-access.md).
+Las recomendaciones clásicas no requieren contraseñas ni OAuth, y no se modifica ninguna lista. Solo se recuerda localmente el último nombre utilizado. El botón **Iniciar sesión** da acceso a la única cuenta administradora para **IA experimental — Groq**, restringida a los cuatro perfiles predefinidos. Se conserva la sesión firmada de cuatro horas. La primera versión con Groq devuelve tres propuestas, hasta seis solicitudes diarias por proceso, con consentimiento y fallback clásico. [Integración y comprobación real de Groq](docs/groq.md).
 
 ## Capturas
 
@@ -89,9 +89,9 @@ El pool externo reúne rankings oficiales por nota y popularidad, una página de
 
 El motor combina afinidad de géneros, similitud de sinopsis con tokens e IDF, preferencias de formato, nota pública, coincidencia de filtros y penalización de similitud para dar variedad. Los pesos están en `DEFAULT_WEIGHTS`. Comprueba metadatos y precuelas; los candidatos no verificables se omiten con un aviso. `rankingScore` es una señal interna, **no una probabilidad**, y no se presenta como porcentaje.
 
-El modo clásico mantiene ese algoritmo. El modo inteligente preparado utiliza el SDK oficial Google GenAI como segunda etapa: recibe entre 20 y 40 candidatos ya filtrados y un resumen de gustos sin username, y decide la selección y el orden final. Se validan IDs, rangos, cantidad y citas literales; las explicaciones visibles se construyen con motivos acotados y referencias verificadas. Ante errores, cuotas, falta de consentimiento o configuración, se conserva el ranking clásico y se indica el motor realmente utilizado.
+El modo clásico mantiene ese algoritmo. Groq recibe hasta 12 candidatos ya filtrados, fragmentos de sinopsis y un resumen con hasta cinco favoritos y dos rechazos, sin username ni imágenes. Selecciona los IDs y su orden. La validación comprueba cantidad, IDs, rangos, filtros y motivos apoyados en metadatos; no publica prosa narrativa no verificable. Ante errores, cuotas o falta de consentimiento/configuración se conserva el resultado clásico y se indica el motor realmente utilizado. Gemini se conserva desactivado como integración compatible.
 
-**Estado actual: Gemini habilitado para pruebas personales autenticadas**, con `GEMINI_ENABLED=true`, `GEMINI_PERSONAL_TEST_MODE=true` y región real `EEA`. Los visitantes conservan exclusivamente el modo clásico. La clave permanece en las variables privadas de Railway. Sin volumen adicional, las cuotas están en memoria y se reinician con el proceso: no garantizan seis llamadas totales entre reinicios o réplicas. Una prueba real autorizada, tras corregir la complejidad del esquema, devolvió tres recomendaciones verificadas con `gemini-3.1-flash-lite`: 5.997 tokens de entrada y 908 de salida. Fue una instancia local aislada de la misma API con sesión temporal de prueba y variables inyectadas desde Railway; la contraseña de producción no se modificó. No se activó facturación ni se contrataron servicios. [Detalles de acceso y comprobación](docs/admin-access.md).
+**Estado 3.2: Groq como proveedor experimental predeterminado**, `GROQ_MODEL=openai/gpt-oss-20b`, `GROQ_ENABLED=true`, `GROQ_TIMEOUT_MS=45000`; `GEMINI_ENABLED=false`. Ambas comprobaciones reales se ejecutaron dentro de Railway: conectividad HTTP 200 en 160 ms y recomendación validada de SadPuyana en 632 ms, con 2.101 tokens de entrada y 187 de salida. Los visitantes mantienen el clásico. Las claves permanecen en variables privadas. Los contadores en memoria se reinician con el proceso; no garantizan seis llamadas totales entre reinicios o réplicas. No se activó facturación ni se crearon servicios de pago.
 
 Consulta [la evaluación comparativa](docs/recommendation-evaluation.md) y [el registro de QA 3.0](docs/gemini-validation.md). No se afirma una mejora de calidad de Gemini sin una evaluación real.
 

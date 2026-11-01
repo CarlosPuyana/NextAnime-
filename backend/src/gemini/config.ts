@@ -17,6 +17,7 @@ export interface GeminiConfig {
   subjectLimit: number;
   clientLimit: number;
   minuteLimit: number;
+  minuteTokens?: number;
   maxConcurrent: number;
   dailyTokens: number;
   timeoutMs: number;

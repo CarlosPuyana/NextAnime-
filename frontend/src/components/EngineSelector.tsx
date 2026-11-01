@@ -24,7 +24,7 @@ export function EngineSelector({
       </div>
       <p>
         Elige el análisis clásico o, cuando esté disponible, una segunda lectura
-        narrativa con Gemini.
+        narrativa con Groq.
       </p>
       <div className="engine-options">
         <button
@@ -40,20 +40,20 @@ export function EngineSelector({
           </span>
         </button>
         <button
-          className={`source-card ${mode === "gemini" ? "selected" : ""}`}
-          aria-pressed={mode === "gemini"}
+          className={`source-card ${mode === "groq" ? "selected" : ""}`}
+          aria-pressed={mode === "groq"}
           disabled={!gemini.available}
-          onClick={() => onModeChange("gemini")}
+          onClick={() => onModeChange("groq")}
         >
           <Sparkles size={20} />
-          <strong>Gemini experimental</strong>
+          <strong>IA experimental — Groq</strong>
           <span>
-            Compara un resumen de tus gustos y reordena candidatos ya
-            verificados.
+            Analiza tus gustos y compara las historias de los animes candidatos
+            utilizando inteligencia artificial.
           </span>
           <small>
             {gemini.available
-              ? "Análisis externo opcional"
+              ? "Análisis externo opcional · 3 recomendaciones"
               : "Preparado · no disponible"}
           </small>
         </button>
@@ -62,27 +62,27 @@ export function EngineSelector({
         <p className="engine-availability">
           {gemini.message}{" "}
           <a
-            href="https://ai.google.dev/gemini-api/terms"
+            href="https://console.groq.com/docs/your-data"
             target="_blank"
             rel="noreferrer"
           >
-            Condiciones de Google
+            Tratamiento de datos en Groq
           </a>
         </p>
       )}
       {gemini.available && (
         <p className="engine-availability">{gemini.message}</p>
       )}
-      {mode === "gemini" && gemini.available && (
+      {mode === "groq" && gemini.available && (
         <div className="ai-consent">
           <ShieldCheck size={18} />
           <div>
             <p>
-              Google recibirá hasta 40 candidatos, sinopsis y una selección
-              limitada de tus valoraciones para ordenar las propuestas. No
-              enviamos tu username ni el historial completo. El tratamiento
-              depende de las condiciones de Google; si no quieres compartir
-              estos datos, utiliza el modo clásico.
+              Groq recibirá hasta 12 candidatos, fragmentos de sinopsis y una
+              selección limitada de tus valoraciones para ordenar las
+              propuestas. No enviamos tu username ni el historial completo. El
+              tratamiento depende de las condiciones de Groq; si no quieres
+              compartir estos datos, utiliza el modo clásico.
             </p>
             <label>
               <input

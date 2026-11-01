@@ -70,19 +70,21 @@ function App() {
     reason: "loading",
     model: "",
     message:
-      "El modo clásico está disponible. No se ha confirmado la disponibilidad de Gemini.",
+      "El modo clásico está disponible. No se ha confirmado la disponibilidad de Groq.",
   });
   const titleRef = useRef<HTMLHeadingElement>(null);
   useEffect(() => {
-    void api<{ gemini: GeminiAvailability }>("/capabilities")
-      .then((data) => setGemini(data.gemini))
+    void api<{ ai?: GeminiAvailability; gemini: GeminiAvailability }>(
+      "/capabilities",
+    )
+      .then((data) => setGemini(data.ai ?? data.gemini))
       .catch(() =>
         setGemini({
           available: false,
           reason: "unavailable",
           model: "",
           message:
-            "No se pudo confirmar la disponibilidad de Gemini. Puedes continuar con el modo clásico.",
+            "No se pudo confirmar la disponibilidad de Groq. Puedes continuar con el modo clásico.",
         }),
       );
     try {
@@ -143,7 +145,7 @@ function App() {
   }
   async function discover() {
     if (!profile) return;
-    if (mode === "gemini" && !aiConsent) {
+    if (mode !== "classic" && !aiConsent) {
       setError(
         "Confirma el consentimiento o utiliza la recomendación clásica.",
       );
@@ -157,7 +159,7 @@ function App() {
         preferences,
         seen,
         mode,
-        ...(mode === "gemini" && aiConsent
+        ...(mode !== "classic" && aiConsent
           ? {
               consent: {
                 externalProcessing: true,
@@ -590,6 +592,7 @@ function App() {
                         {([3, 5, 10, 20] as const).map((count) => (
                           <button
                             key={count}
+                            disabled={mode === "groq" && count !== 3}
                             aria-pressed={preferences.count === count}
                             className={
                               preferences.count === count ? "selected" : ""
@@ -611,6 +614,8 @@ function App() {
                         onConsentChange={setAiConsent}
                         onModeChange={(next) => {
                           setMode(next);
+                          if (next === "groq")
+                            setPreferences((old) => ({ ...old, count: 3 }));
                           setAiConsent(false);
                         }}
                       />
@@ -655,7 +660,7 @@ function App() {
                     <button
                       className="primary discover-button"
                       onClick={() => void discover()}
-                      disabled={!!loading || (mode === "gemini" && !aiConsent)}
+                      disabled={!!loading || (mode !== "classic" && !aiConsent)}
                     >
                       Descubrir mis próximos animes <ArrowRight size={18} />
                     </button>
@@ -696,9 +701,11 @@ function App() {
                   data-engine={result.engine ?? "classic"}
                 >
                   <Sparkles size={14} />
-                  {result.engine === "gemini"
-                    ? "Recomendación con Gemini"
-                    : "Recomendación clásica"}
+                  {result.engine === "groq"
+                    ? "Recomendado con IA · Groq"
+                    : result.engine === "gemini"
+                      ? "Recomendación con Gemini"
+                      : "Recomendación clásica"}
                   {result.engineInfo?.cacheHit && (
                     <small>Resultado reutilizado</small>
                   )}
@@ -757,9 +764,11 @@ function App() {
                     Cambiar perfil <ArrowRight size={15} />
                   </button>
                   <small>
-                    {result.engine === "gemini"
-                      ? "Gemini ha ordenado la selección. Motivos vinculados a sinopsis verificadas."
-                      : "Selección y explicaciones del algoritmo clásico. Sin análisis externo de IA."}
+                    {result.engine === "groq"
+                      ? "Groq ha seleccionado y ordenado estas propuestas."
+                      : result.engine === "gemini"
+                        ? "Gemini ha ordenado la selección. Motivos vinculados a sinopsis verificadas."
+                        : "Selección y explicaciones del algoritmo clásico. Sin análisis externo de IA."}
                   </small>
                 </div>
               </>
