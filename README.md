@@ -34,6 +34,8 @@ No se requieren contraseñas ni OAuth, y no se modifica ninguna lista. Solo se r
 
 ## Arquitectura
 
+El [sistema de perfiles](docs/profile-system.md) centraliza nombres visibles, usernames MAL, textos, paletas y retratos originales. SadPuyana, Nora, Anto y Anita conservan sus usernames reales y personalizan sutilmente preferencias y resultados. Esta identidad visual no cambia las recomendaciones calculadas con datos de MAL.
+
 ```text
 frontend/       React + TypeScript + Vite + CSS
 backend/src/    Express, proveedor MAL, caché, recomendador y capa opcional de IA

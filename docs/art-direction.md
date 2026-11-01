@@ -1,5 +1,22 @@
 # Arte original NextAnime
 
+## Personalización de perfiles · noviembre de 2026
+
+Se mantiene la identidad global oscura de NextAnime y la ilustración de entrada. La nueva familia de cuatro retratos se genera con ImageGen integrado a partir de un mismo brief de estilo: tinta limpia, ojos expresivos, cel shading cinematográfico, fondo pictórico discreto, textura suave y encuadre consistente. Pillow convierte los originales a WebP, con un máximo de 896 px y calidad 87; los PNG originales se conservan fuera del bundle. No se copian ilustraciones, pósters ni key visuals oficiales.
+
+| Perfil    | Inspiración aportada                         | Traducción a un diseño original                                                                             | Asset                         |
+| --------- | -------------------------------------------- | ----------------------------------------------------------------------------------------------------------- | ----------------------------- |
+| SadPuyana | Mushoku Tensei / Roxy Migurdia               | Maga viajera, trenza azul, capucha bordada, cristal y valle fantástico; turquesa y lavanda.                 | `art/profiles/sadpuyana.webp` |
+| Nora      | Maomao / Nezuko                              | Boticaria de jardín nocturno, vial medicinal, peinado asimétrico y hojas; vino, rosa y salvia.              | `art/profiles/nora.webp`      |
+| Anto      | The Quintessential Quintuplets / Nakano Miku | Joven de mirada tranquila, auriculares azules, punto crema y biblioteca luminosa; azul y lila.              | `art/profiles/anto.webp`      |
+| Anita     | Luffy / One Piece                            | Aventurera marina original, sombrero tejido con cinta azul, chaqueta roja y brújula; rojo, dorado y marino. | `art/profiles/anita.webp`     |
+
+La selección muestra la misma estructura para todos, con paleta y textos propios. En preferencias y resultados el acento es sutil y la marca permanece rosa. No se presentan las inspiraciones como datos inferidos del historial. La configuración y el proceso para añadir perfiles se describen en [profile-system.md](profile-system.md).
+
+Los prompts completos de estos retratos se conservan en [profile-art-prompts.md](profile-art-prompts.md). Los recursos anteriores se conservan para recuperar la versión previa; el antiguo atlas ya no controla los perfiles activos.
+
+## Recursos de la primera versión
+
 Recursos generados con la herramienta integrada ImageGen, sin API key ni CLI de pago. Se mantienen las imágenes originales y se convierten a WebP para la web. No representan a los usuarios reales ni a personajes de franquicias existentes. Las portadas de resultados siguen siendo las de MyAnimeList.
 
 - `frontend/public/art/nextanime-world.webp`: escena para la entrada y pequeños acentos de ambiente en preferencias y resultados.

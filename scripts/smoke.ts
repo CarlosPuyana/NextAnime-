@@ -1,5 +1,6 @@
 import { chromium, devices } from "@playwright/test";
 import { mkdir } from "node:fs/promises";
+import { PROFILES } from "../frontend/src/config/profiles";
 const url = process.env.APP_URL ?? "http://127.0.0.1:5173/NextAnime-/";
 const output = process.env.SCREENSHOT_DIR ?? ".local/screenshots";
 await mkdir(output, { recursive: true });
@@ -12,16 +13,19 @@ try {
   page.on("pageerror", (e) => errors.push(e.message));
   await page.goto(url);
   await page.getByRole("heading", { name: /Cada gusto/ }).waitFor();
-  await page.evaluate(async () => {
-    await document.fonts.ready;
-    await Promise.all(
-      ["art/nextanime-world.webp", "art/nextanime-avatars.webp"].map((src) => {
-        const img = new Image();
-        img.src = new URL(src, location.href).href;
-        return img.decode();
-      }),
-    );
-  });
+  await page.evaluate(
+    async (assets) => {
+      await document.fonts.ready;
+      await Promise.all(
+        assets.map((src) => {
+          const img = new Image();
+          img.src = new URL(src, location.href).href;
+          return img.decode();
+        }),
+      );
+    },
+    ["art/nextanime-world.webp", ...PROFILES.map((p) => p.avatarAsset!)],
+  );
   await page.screenshot({
     path: `${output}/perfiles.png`,
     fullPage: true,
@@ -61,14 +65,12 @@ try {
         /* Report image diagnostics below. */
       }
     });
-  const covers = await page
-    .locator("article img")
-    .evaluateAll((els) =>
-      els.map((img) => ({
-        url: (img as HTMLImageElement).src,
-        loaded: (img as HTMLImageElement).naturalWidth > 0,
-      })),
-    );
+  const covers = await page.locator("article img").evaluateAll((els) =>
+    els.map((img) => ({
+      url: (img as HTMLImageElement).src,
+      loaded: (img as HTMLImageElement).naturalWidth > 0,
+    })),
+  );
   await page.screenshot({
     path: `${output}/resultados.png`,
     fullPage: true,
@@ -103,6 +105,51 @@ try {
     )
   )
     throw new Error("Horizontal overflow on mobile");
+  await mobile.getByRole("button", { name: /^Nora @Noraaa_12/ }).click();
+  await mobile
+    .getByRole("heading", { name: /Afinemos/ })
+    .waitFor({ timeout: 180000 });
+  await mobile
+    .getByRole("button", { name: "Acción", exact: true })
+    .waitFor({ timeout: 60000 });
+  await mobile.screenshot({
+    path: `${output}/movil-preferencias.png`,
+    fullPage: true,
+    animations: "disabled",
+  });
+  if (
+    await mobile.evaluate(
+      () => document.documentElement.scrollWidth > window.innerWidth,
+    )
+  )
+    throw new Error("Preferences overflow on mobile");
+  await mobile.getByRole("button", { name: /Descubrir mis próximos/ }).click();
+  await mobile
+    .getByRole("heading", { name: /Hay un anime/ })
+    .waitFor({ timeout: 180000 });
+  await mobile
+    .locator("article img")
+    .first()
+    .evaluate(async (img) => {
+      try {
+        await (img as HTMLImageElement).decode();
+      } catch {
+        /* Report network failures separately. */
+      }
+    });
+  await mobile.screenshot({
+    path: `${output}/movil-resultados.png`,
+    fullPage: true,
+    animations: "disabled",
+  });
+  if (
+    await mobile.evaluate(
+      () => document.documentElement.scrollWidth > window.innerWidth,
+    )
+  )
+    throw new Error("Results overflow on mobile");
+  if ((await mobile.locator("article").count()) < 1)
+    throw new Error("No real mobile recommendations");
   if (errors.length) throw new Error(errors.join("\n"));
   console.log(
     JSON.stringify(

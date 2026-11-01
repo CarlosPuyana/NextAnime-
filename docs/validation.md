@@ -1,5 +1,7 @@
 # Validación
 
+La validación de la mejora posterior de identidades visuales se registra en [profile-validation.md](profile-validation.md): 42 pruebas unitarias/integración y 32 E2E. Este documento conserva el registro del despliegue inicial.
+
 ## Automatizada local
 
 - 38 pruebas Vitest/Supertest: notas, afinidades, paginación de más de 1000 entradas, filtros, exclusiones, fuentes, cantidades, precuelas, CORS y errores de proveedor.

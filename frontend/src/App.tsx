@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import {
   ArrowLeft,
   ArrowRight,
@@ -15,7 +15,6 @@ import {
   Shuffle,
   Sparkles,
   Star,
-  WandSparkles,
   X,
 } from "lucide-react";
 import type {
@@ -28,23 +27,11 @@ import type {
 } from "../../shared/types";
 import { api } from "./api";
 import { genreName } from "../../shared/genre-labels";
+import { CUSTOM_PROFILE, PROFILES, resolveProfile } from "./config/profiles";
+import { ProfileAvatar, profileAssetUrl } from "./components/ProfileAvatar";
+import { ProfileCard } from "./components/ProfileCard";
 
-const profiles = ["SadPuyana", "Noraaa_12", "Antoniioman", "aniitabombii09"];
 const defaults: Preferences = { genres: [], source: "both", count: 5 };
-function Avatar({
-  index = 0,
-  small = false,
-}: {
-  index?: number;
-  small?: boolean;
-}) {
-  return (
-    <span
-      className={`avatar anime-avatar avatar-${index} ${small ? "small" : ""}`}
-      aria-hidden="true"
-    />
-  );
-}
 function App() {
   const [screen, setScreen] = useState<"profiles" | "preferences" | "results">(
     "profiles",
@@ -63,6 +50,7 @@ function App() {
   const [result, setResult] = useState<Results | null>(null),
     [seen, setSeen] = useState<number[]>([]);
   const [last, setLast] = useState("");
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const titleRef = useRef<HTMLHeadingElement>(null);
   useEffect(() => {
     try {
@@ -89,7 +77,13 @@ function App() {
       return;
     }
     setError("");
-    setLoading(`Conectando con ${name}`);
+    const identity = resolveProfile(name);
+    setSelectedId(identity.id);
+    setLoading(
+      identity.id === "custom"
+        ? `Conectando con ${name}`
+        : identity.microcopy.loading,
+    );
     void fetchGenres();
     try {
       const data = await api<Profile & { analysis: Analysis }>(
@@ -139,16 +133,33 @@ function App() {
     setError("");
     setResult(null);
     setSeen([]);
+    setSelectedId(null);
   }
   function updatePreferences(next: Preferences) {
     setPreferences(next);
   }
-  const profileIndex = Math.max(0, profiles.indexOf(profile?.username ?? ""));
+  const identity = resolveProfile(profile?.username);
+  const themeStyle = profile
+    ? ({
+        "--pink": identity.accentColor,
+        "--profile-accent": identity.accentColor,
+        "--profile-secondary": identity.palette.secondary,
+        "--profile-surface": identity.palette.surface,
+        "--profile-on-accent": identity.palette.onAccent,
+        "--profile-hero": `url("${profileAssetUrl(identity.heroAsset)}")`,
+        "--profile-hero-position": identity.decorativeTokens.heroPosition,
+      } as CSSProperties)
+    : undefined;
   const selectedGenres = genres.filter((g) =>
     preferences.genres.includes(g.id),
   );
   return (
-    <div className={`app screen-${screen}`}>
+    <div
+      className={`app screen-${screen}`}
+      style={themeStyle}
+      data-profile-id={profile ? identity.id : undefined}
+      data-profile-motif={profile ? identity.decorativeTokens.motif : undefined}
+    >
       <header className="header">
         <button
           className="brand"
@@ -164,8 +175,11 @@ function App() {
         <span className="header-caption">MENOS BUSCAR. MÁS SENTIR.</span>
         {profile ? (
           <button className="profile-switch" onClick={changeProfile}>
-            <Avatar index={profileIndex} small />
-            {profile.username}
+            <ProfileAvatar identity={identity} small />
+            <span className="active-profile-name">
+              {identity.displayName}
+              <small>@{profile.username}</small>
+            </span>
             <ChevronRight size={15} />
           </button>
         ) : (
@@ -212,26 +226,15 @@ function App() {
               </p>
             </div>
             <div className="profile-grid">
-              {profiles.map((name, i) => (
-                <button
-                  key={name}
-                  className="profile-card"
-                  onClick={() => void selectProfile(name)}
+              {PROFILES.map((p) => (
+                <ProfileCard
+                  key={p.id}
+                  identity={p}
+                  selected={selectedId === p.id}
+                  last={last.toLowerCase() === p.malUsername?.toLowerCase()}
                   disabled={!!loading}
-                >
-                  <span className="avatar-frame">
-                    <Avatar index={i} />
-                    <span className="profile-arrow">
-                      <ArrowRight size={19} />
-                    </span>
-                  </span>
-                  <span className="profile-name">{name}</span>
-                  <span className="profile-hint">
-                    {last === name
-                      ? "Último perfil utilizado"
-                      : "Explorar mi universo"}
-                  </span>
-                </button>
+                  onSelect={() => void selectProfile(p.malUsername!)}
+                />
               ))}
               <button
                 className={`profile-card custom-profile ${custom ? "chosen" : ""}`}
@@ -245,8 +248,15 @@ function App() {
                 <span className="avatar-frame custom-avatar">
                   <Plus size={38} strokeWidth={1.3} />
                 </span>
-                <span className="profile-name">Otro usuario</span>
-                <span className="profile-hint">Trae tu propia historia</span>
+                <span className="profile-name">
+                  {CUSTOM_PROFILE.displayName}
+                </span>
+                <span className="profile-tagline">
+                  {CUSTOM_PROFILE.subtitle}
+                </span>
+                <span className="profile-hint">
+                  {CUSTOM_PROFILE.microcopy.enter}
+                </span>
               </button>
             </div>
             {custom && (
@@ -309,7 +319,7 @@ function App() {
                 <div className="page-heading">
                   <div>
                     <div className="eyebrow">
-                      EL SIGUIENTE CAPÍTULO LO ELIGES TÚ
+                      {identity.microcopy.preferencesEyebrow}
                     </div>
                     <h1 ref={titleRef} tabIndex={-1}>
                       Afinemos tu <em>próxima historia.</em>
@@ -542,24 +552,24 @@ function App() {
                   </div>
                   <aside className="discovery-summary">
                     <span className="summary-art" aria-hidden="true">
-                      <WandSparkles size={46} />
-                      <i />
-                      <i />
+                      <span className="summary-identity">
+                        {identity.decorativeTokens.symbol} {identity.subtitle}
+                      </span>
                     </span>
-                    <div className="eyebrow">HECHO PARA TU CURIOSIDAD</div>
-                    <h2>
-                      El próximo anime
-                      <br />
-                      que no podrás soltar.
-                    </h2>
-                    <p>
-                      Conectamos tus valoraciones con historias reales. Sin
-                      sorteos. Sin títulos inventados.
-                    </p>
+                    <div className="eyebrow">
+                      EL UNIVERSO DE {identity.displayName.toUpperCase()}
+                    </div>
+                    <h2>{identity.microcopy.summaryTitle}</h2>
+                    <p>{identity.microcopy.summaryBody}</p>
                     <dl>
                       <div>
                         <dt>Tu perfil</dt>
-                        <dd>{profile.username}</dd>
+                        <dd>
+                          {identity.displayName}
+                          <small className="summary-handle">
+                            @{profile.username}
+                          </small>
+                        </dd>
                       </div>
                       <div>
                         <dt>Selección</dt>
@@ -595,14 +605,14 @@ function App() {
                 <div className="page-heading results-heading">
                   <div>
                     <div className="eyebrow">
-                      <Sparkles size={14} /> TU SIGUIENTE GRAN HISTORIA
+                      <Sparkles size={14} /> {identity.microcopy.resultsEyebrow}
                     </div>
                     <h1 ref={titleRef} tabIndex={-1}>
                       Hay un anime <em>esperándote.</em>
                     </h1>
                     <p>
-                      {result.items.length} propuestas para {profile?.username}.
-                      Elegidas con tus gustos en mente.
+                      {result.items.length} propuestas para{" "}
+                      {identity.displayName}. Elegidas con tus gustos en mente.
                     </p>
                   </div>
                   <button

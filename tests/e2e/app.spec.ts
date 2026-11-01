@@ -1,6 +1,7 @@
 import { test, expect, type Page } from "@playwright/test";
 import { profile, discoveries, action, romance } from "../fixtures";
 import { analyze, recommend } from "../../backend/src/recommender";
+import { PROFILES } from "../../frontend/src/config/profiles";
 async function mock(page: Page) {
   await page.route("**/api/genres", (r) =>
     r.fulfill({ json: [action, romance, { id: 10, name: "Fantasy" }] }),
@@ -32,15 +33,47 @@ test.beforeEach(async ({ page }) => {
   await mock(page);
   await page.goto("./");
 });
-for (const name of ["SadPuyana", "Noraaa_12", "Antoniioman", "aniitabombii09"])
-  test(`select profile ${name}`, async ({ page }) => {
-    await page.getByRole("button", { name: new RegExp(`^${name}`) }).click();
+for (const p of PROFILES)
+  test(`select profile ${p.displayName} using MAL ${p.malUsername}`, async ({
+    page,
+  }) => {
+    const request = page.waitForRequest((r) =>
+      r.url().endsWith(`/api/profiles/${p.malUsername}`),
+    );
+    await page
+      .getByRole("button", {
+        name: new RegExp(`^${p.displayName} @${p.malUsername}`),
+      })
+      .click();
+    await request;
     await expect(
       page.getByRole("heading", { name: "Afinemos tu próxima historia." }),
     ).toBeVisible();
     await expect(
-      page.getByRole("button", { name: new RegExp(name) }).first(),
+      page
+        .getByRole("button", {
+          name: new RegExp(`${p.displayName}.*@${p.malUsername}`),
+        })
+        .first(),
     ).toBeVisible();
+    await expect(page.locator(".app")).toHaveAttribute("data-profile-id", p.id);
+    await expect(page.locator(".app")).toHaveCSS(
+      "--profile-accent",
+      p.accentColor,
+    );
+    await page.getByRole("button", { name: /Descubrir mis próximos/ }).click();
+    await expect(
+      page.getByRole("heading", { name: /Hay un anime/ }),
+    ).toBeVisible();
+    await expect(page.locator(".app")).toHaveAttribute("data-profile-id", p.id);
+    await expect(page.locator(".results-heading")).toContainText(
+      `propuestas para ${p.displayName}`,
+    );
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= window.innerWidth,
+      ),
+    ).toBe(true);
   });
 test("custom username validates and reports missing user", async ({ page }) => {
   await page.getByRole("button", { name: /Otro usuario/ }).click();
@@ -112,11 +145,11 @@ test("responsive layout, keyboard navigation and local last profile", async ({
   await expect(
     page.getByRole("button", { name: "NextAnime, cambiar perfil" }),
   ).toBeFocused();
-  await page.getByRole("button", { name: /^Noraaa_12/ }).click();
+  await page.getByRole("button", { name: /^Nora @Noraaa_12/ }).click();
   await expect(page.getByRole("heading", { name: /Afinemos/ })).toBeVisible();
   await page.reload();
   await expect(
-    page.getByRole("button", { name: /Noraaa_12 Último perfil/ }),
+    page.getByRole("button", { name: /Nora @Noraaa_12.*Último perfil/ }),
   ).toBeVisible();
 });
 test("profile failure can be retried", async ({ page }) => {
@@ -155,4 +188,36 @@ test("empty recommendations explain limitations without invalid filler", async (
     page.getByRole("heading", { name: /Hemos explorado/ }),
   ).toBeVisible();
   await expect(page.getByText(/Encontramos 0 de las 5/)).toBeVisible();
+});
+
+test("custom profile stays neutral and never inherits a predefined portrait", async ({
+  page,
+}) => {
+  await page.getByRole("button", { name: /Otro usuario/ }).click();
+  await page.getByLabel("Tu nombre de MyAnimeList").fill("Guest_123");
+  await page.getByRole("button", { name: "Continuar" }).click();
+  await expect(page.getByRole("heading", { name: /Afinemos/ })).toBeVisible();
+  await expect(page.locator(".app")).toHaveAttribute(
+    "data-profile-id",
+    "custom",
+  );
+  await expect(page.locator(".profile-switch .guest-avatar")).toBeVisible();
+  await expect(page.locator(".profile-switch")).toContainText("@Guest_123");
+  await expect(page.locator(".profile-switch .identity-avatar")).toHaveCSS(
+    "background-image",
+    "none",
+  );
+});
+
+test("selection has an explicit state during profile errors", async ({
+  page,
+}) => {
+  await page.route("**/api/profiles/*", (r) =>
+    r.fulfill({ status: 503, json: { error: "Error temporal de MAL." } }),
+  );
+  const card = page.getByRole("button", { name: /^Anita @aniitabombii09/ });
+  await card.click();
+  await expect(page.getByRole("alert")).toContainText("Error temporal");
+  await expect(card).toHaveAttribute("aria-pressed", "true");
+  await expect(card).toHaveClass(/chosen/);
 });
