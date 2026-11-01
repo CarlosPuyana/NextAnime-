@@ -1,0 +1,12 @@
+.git
+node_modules
+.env
+.env.*
+.local
+dist
+frontend
+tests
+playwright-report
+test-results
+docs
+VS.jfif

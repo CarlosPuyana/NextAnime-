@@ -1,0 +1,285 @@
+/* Original anime artwork, with real interface text kept outside the illustration. */
+.anime-avatar {
+  background-image: url("/art/nextanime-avatars.webp");
+  background-size: 200% 200%;
+  background-repeat: no-repeat;
+  box-shadow: inset 0 0 0 1px #ffffff24;
+}
+.anime-avatar.avatar-0 {
+  background-position: left top;
+}
+.anime-avatar.avatar-1 {
+  background-position: right top;
+}
+.anime-avatar.avatar-2 {
+  background-position: left bottom;
+}
+.anime-avatar.avatar-3 {
+  background-position: right bottom;
+}
+.profile-page {
+  isolation: isolate;
+  text-align: left;
+  padding: 77px 7% 42px;
+  min-height: 790px;
+  max-width: none;
+}
+.profile-page .scene {
+  z-index: -1;
+  background: none;
+  overflow: hidden;
+}
+.scene:before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: url("/art/nextanime-world.webp") center 37% / cover no-repeat;
+  opacity: 0.79;
+}
+.scene:after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(90deg, #101014e8 0%, #1010149c 35%, #10101400 70%),
+    linear-gradient(
+      0deg,
+      #101014 0%,
+      #101014f5 12%,
+      #10101495 42%,
+      #10101400 78%
+    );
+}
+.scene-grid,
+.scene-moon,
+.scene-star,
+.scene-mountains {
+  display: none;
+}
+.profile-intro {
+  position: relative;
+  z-index: 1;
+  max-width: 730px;
+}
+.profile-intro .eyebrow {
+  color: #ff9ab2;
+  text-shadow: 0 2px 15px #000;
+}
+.profile-page h1 {
+  font-size: clamp(38px, 4.2vw, 64px);
+  line-height: 1.1;
+  letter-spacing: -2px;
+  text-shadow: 0 3px 35px #08070b88;
+}
+.profile-page h1 > span {
+  background: linear-gradient(90deg, #ffb4c7, #c3a7dc);
+  background-clip: text;
+  color: transparent;
+}
+.profile-page .intro {
+  color: #d1c6d3;
+  max-width: 480px;
+  font-size: 13px;
+  line-height: 1.9;
+}
+.profile-grid {
+  margin: 69px auto 0;
+  max-width: 955px;
+  gap: 28px;
+  text-align: center;
+  position: relative;
+  z-index: 1;
+}
+.avatar-frame {
+  background: #15101950;
+  box-shadow: 0 8px 28px #0003;
+  border-radius: 18px;
+}
+.profile-card .anime-avatar {
+  border-radius: 13px;
+  aspect-ratio: 1;
+}
+.profile-card:hover .anime-avatar {
+  box-shadow: inset 0 0 0 1px #fc9fbc88;
+}
+.profile-name {
+  font-size: 16px;
+}
+.profile-hint {
+  color: #b4a5ba;
+  font-size: 10px;
+}
+.custom-profile .custom-avatar {
+  background: #18131ecc;
+  backdrop-filter: blur(12px);
+  border-color: #98839b85;
+}
+.custom-avatar > svg {
+  color: #d3b9d7;
+}
+.profile-bottom {
+  margin-top: 36px;
+  color: #bba9bf;
+  font-size: 10px;
+}
+.custom-form {
+  position: relative;
+  z-index: 2;
+}
+.screen-preferences .workspace,
+.screen-results .workspace {
+  position: relative;
+  isolation: isolate;
+}
+.screen-preferences .workspace:before,
+.screen-results .workspace:before {
+  content: "";
+  z-index: -1;
+  position: absolute;
+  top: 0;
+  right: -130px;
+  width: 580px;
+  height: 390px;
+  background:
+    linear-gradient(90deg, #101014, transparent),
+    linear-gradient(0deg, #101014, transparent),
+    url("/art/nextanime-world.webp") 76% 20% / cover;
+  opacity: 0.12;
+  pointer-events: none;
+}
+.summary-art {
+  height: 160px;
+  margin: -28px -24px 0;
+  border-radius: 15px 15px 0 0;
+  background:
+    linear-gradient(0deg, #2b1e2e, transparent 80%),
+    url("/art/nextanime-world.webp") 82% 36% / cover;
+}
+.summary-art > svg,
+.summary-art > i,
+.summary-art:before,
+.summary-art:after {
+  display: none;
+}
+.discovery-summary .eyebrow {
+  margin-top: 19px;
+}
+.anime-featured {
+  box-shadow: 0 14px 70px #0002;
+}
+.poster-wrap {
+  background-image: linear-gradient(135deg, #382735, #23202c);
+}
+@media (min-width: 1600px) {
+  .profile-page {
+    padding-top: 95px;
+    min-height: 830px;
+  }
+  .profile-grid {
+    margin-top: 83px;
+    max-width: 1030px;
+  }
+}
+@media (max-width: 1050px) {
+  .profile-page {
+    padding-top: 66px;
+    min-height: 760px;
+  }
+  .profile-intro {
+    max-width: 650px;
+  }
+  .profile-page h1 {
+    font-size: 48px;
+  }
+  .scene:before {
+    background-position: 66% 28%;
+    opacity: 0.66;
+  }
+  .profile-grid {
+    margin-top: 67px;
+    gap: 17px;
+  }
+  .profile-name {
+    font-size: 14px;
+  }
+  .summary-art {
+    margin: -28px -24px 0;
+  }
+}
+@media (max-width: 700px) {
+  .profile-page {
+    padding: 45px 20px 30px;
+    min-height: 0;
+    text-align: left;
+  }
+  .profile-intro {
+    max-width: 460px;
+  }
+  .profile-intro .eyebrow {
+    font-size: 8px;
+    letter-spacing: 1.5px;
+  }
+  .profile-page h1 {
+    font-size: 38px;
+    letter-spacing: -1.2px;
+    max-width: 350px;
+    margin: 20px 0 17px;
+  }
+  .profile-page .intro {
+    font-size: 11px;
+    line-height: 1.9;
+    max-width: 290px;
+  }
+  .scene:before {
+    height: 510px;
+    background-size: auto 560px;
+    background-position: 63% 0;
+    opacity: 0.54;
+  }
+  .scene:after {
+    background:
+      linear-gradient(90deg, #101014cc, #10101422),
+      linear-gradient(0deg, #101014 30%, #101014cc 51%, #10101400 85%);
+  }
+  .profile-grid {
+    margin-top: 43px;
+    max-width: 330px;
+    gap: 21px 20px;
+  }
+  .profile-name {
+    font-size: 14px;
+  }
+  .profile-hint {
+    font-size: 9px;
+  }
+  .profile-grid .custom-profile {
+    backdrop-filter: blur(10px);
+    background: #16111c88;
+  }
+  .profile-bottom {
+    font-size: 9px;
+    margin-top: 29px;
+    align-items: flex-start;
+    max-width: 330px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+  .profile-grid .custom-profile .avatar-frame {
+    box-shadow: none;
+  }
+  .summary-art {
+    display: block;
+    height: 150px;
+    margin: -22px -22px 0;
+  }
+  .screen-preferences .workspace:before,
+  .screen-results .workspace:before {
+    right: -30px;
+    opacity: 0.08;
+    width: 350px;
+  }
+  .custom-profile .custom-avatar {
+    background: none;
+    backdrop-filter: none;
+  }
+}
