@@ -1,6 +1,8 @@
 # NextAnime 3.0 · ranking híbrido con Gemini
 
-## Estado de esta publicación
+**Actualización 3.1:** el estado vigente es el [modo personal autenticado](admin-access.md), con seis pruebas por ejecución y una respuesta real verificada. El resto de este documento conserva la configuración y las restricciones de la entrega 3.0; su bloqueo público no se aplica automáticamente al modo personal autorizado.
+
+## Estado de la entrega 3.0 (histórico)
 
 **Preparado, pero desactivado en producción.** La aplicación clásica funciona sin Google. No hay una clave Gemini configurada ni se han realizado llamadas reales. El propietario confirmó la revocación de la clave antigua. No se activó facturación ni se crearon recursos de pago.
 

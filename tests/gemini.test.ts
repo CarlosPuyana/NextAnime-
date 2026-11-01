@@ -4,6 +4,8 @@ import { tmpdir } from "node:os";
 import { join, resolve, sep } from "node:path";
 import {
   GeminiRankingService,
+  providerResponseSchema,
+  responseSchema,
   validateRanking,
   type GeminiTransport,
   type HybridInput,
@@ -15,6 +17,7 @@ import {
 } from "../backend/src/gemini/config.js";
 import {
   SqliteQuotaStore,
+  MemoryQuotaStore,
   type QuotaStore,
 } from "../backend/src/gemini/quota.js";
 import {
@@ -28,6 +31,7 @@ import { profile, discoveries, anime } from "./fixtures.js";
 const config = (): GeminiConfig => ({
   ...readGeminiConfig({ NODE_ENV: "test" }),
   enabled: true,
+  personalTestMode: true,
   apiKey: "test-only-not-a-real-key",
   region: "other",
   freeTierVerified: true,
@@ -91,8 +95,85 @@ const removeTestDir = (dir: string) => {
   rmSync(absolute, { recursive: true, force: true });
 };
 describe("Gemini policy and privacy", () => {
+  it("sends a bounded-complexity wire schema but preserves strict local validation", () => {
+    const wire = JSON.stringify(providerResponseSchema);
+    expect(wire).not.toMatch(/"(?:minimum|maximum|minItems|maxItems)"/);
+    expect(
+      providerResponseSchema.properties.recommendations.items.properties,
+    ).toHaveProperty("animeId");
+    const context = buildContext(
+      profile,
+      rankCandidates(profile, discoveries, {
+        genres: [],
+        source: "both",
+        count: 5,
+      }),
+      { genres: [], source: "both", count: 5 },
+    );
+    const invalid = validOutput(context);
+    invalid.recommendations[0].rank = 100;
+    expect(responseSchema.safeParse(invalid).success).toBe(false);
+  });
+  it("enables explicitly authorized personal testing in the real EEA region without public flags or storage", () => {
+    const c = readGeminiConfig({
+      NODE_ENV: "production",
+      GEMINI_ENABLED: "true",
+      GEMINI_PERSONAL_TEST_MODE: "true",
+      GEMINI_DEPLOYMENT_REGION: "EEA",
+      GEMINI_API_KEY: "test-only",
+    });
+    expect(c.region).toBe("EEA");
+    expect(c.freeTierVerified).toBe(false);
+    expect(c.audienceApproved).toBe(false);
+    expect(c.durable).toBe(false);
+    expect(c.quotaSecret.length).toBeGreaterThanOrEqual(32);
+    expect(availability(c).available).toBe(true);
+    expect(availability(c).message).toContain("se reinician");
+    expect(availability({ ...c, enabled: false }).reason).toBe("disabled");
+    expect(availability({ ...c, apiKey: "" }).reason).toBe("credential");
+    expect(availability({ ...c, personalTestMode: false }).reason).toBe(
+      "region_policy",
+    );
+  });
+  it("uses the existing ranker with a memory quota and enforces six real attempts per process", async () => {
+    const c = {
+      ...config(),
+      region: "EEA" as const,
+      durable: false,
+      quotaPath: "",
+      dailyLimit: 6,
+    };
+    const call = vi.fn(good);
+    const service = new GeminiRankingService(c, call);
+    for (let n = 0; n < 6; n++)
+      expect((await service.rank(input({ seen: [90000 + n] }))).engine).toBe(
+        "gemini",
+      );
+    expect(
+      (await service.rank(input({ seen: [99999] }))).engineInfo?.fallbackReason,
+    ).toBe("quota");
+    expect(call).toHaveBeenCalledTimes(6);
+  });
+  it("memory quota retains atomic limits and circuit behavior and intentionally resets in a new process store", () => {
+    const now = Date.now(),
+      c = { ...config(), dailyLimit: 3 },
+      quota = new MemoryQuotaStore();
+    for (let i = 0; i < 3; i++)
+      expect(quota.reserve(now, "owner", "client", 100, c)).toBe(true);
+    expect(quota.reserve(now, "owner", "client", 100, c)).toBe(false);
+    quota.failure(now, 60000);
+    expect(quota.circuit(now)).toBe(true);
+    quota.success();
+    expect(quota.circuit(now)).toBe(false);
+    const restarted = new MemoryQuotaStore();
+    expect(restarted.reserve(now, "owner", "client", 100, c)).toBe(true);
+    quota.close();
+    restarted.close();
+  });
   it("keeps the EEA free-tier public deployment off even if a key is provided", () => {
-    expect(availability({ ...config(), region: "EEA" })).toMatchObject({
+    expect(
+      availability({ ...config(), personalTestMode: false, region: "EEA" }),
+    ).toMatchObject({
       available: false,
       reason: "region_policy",
     });
@@ -106,7 +187,7 @@ describe("Gemini policy and privacy", () => {
     "durable",
     "quotaSecret",
   ] as const)("fails closed without %s", (field) => {
-    const c = config();
+    const c = { ...config(), personalTestMode: false };
     Object.assign(c, { [field]: typeof c[field] === "boolean" ? false : "" });
     expect(availability(c).available).toBe(false);
   });

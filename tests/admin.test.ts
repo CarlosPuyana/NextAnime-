@@ -222,12 +222,12 @@ describe("private admin access", () => {
       ).status,
     ).toBe(503);
   });
-  it("caps the existing quota to three daily requests and one concurrent", () => {
+  it("caps the existing quota to six daily requests and one concurrent", () => {
     const cfg = readGeminiConfig({
       GEMINI_DAILY_LIMIT: "100",
       GEMINI_MAX_CONCURRENT: "2",
     });
-    expect(cfg.dailyLimit).toBe(3);
+    expect(cfg.dailyLimit).toBe(6);
     expect(cfg.maxConcurrent).toBe(1);
   });
 });

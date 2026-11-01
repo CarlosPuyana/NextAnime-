@@ -99,3 +99,10 @@ export class SqliteQuotaStore implements QuotaStore {
     this.db.close();
   }
 }
+// Reuses the same atomic reservations and circuit breaker, without writing a file.
+// This store deliberately resets when its process restarts; personal tests only.
+export class MemoryQuotaStore extends SqliteQuotaStore {
+  constructor() {
+    super(":memory:");
+  }
+}

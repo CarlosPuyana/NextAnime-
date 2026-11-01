@@ -77,5 +77,7 @@ export interface Results {
     latencyMs: number;
     inputTokens?: number;
     outputTokens?: number;
+    providerStatus?: number;
+    providerCode?: string;
   };
 }

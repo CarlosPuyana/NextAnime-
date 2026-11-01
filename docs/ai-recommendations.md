@@ -1,5 +1,7 @@
 # Recomendaciones de NextAnime 3.0
 
+**Actualización 3.1:** véase [acceso privado y modo personal](admin-access.md) para el estado actual, las seis pruebas diarias por ejecución, el almacenamiento en memoria y la prueba real Gemini. Las restricciones de la entrega pública 3.0 descritas aquí se conservan como antecedente.
+
 El frontend React solicita recomendaciones al backend Express. El backend obtiene listas y candidatos reales de MyAnimeList, aplica filtros y verificaciones, calcula el ranking clásico y, cuando existe una configuración compatible y consentimiento, permite que Gemini seleccione y reordene candidatos. La clave permanece exclusivamente en Railway.
 
 El algoritmo clásico combina valoraciones personales, afinidades por género, similitud de sinopsis, formato, calidad pública y diversidad. Sigue funcionando sin IA y respalda cualquier fallo de Gemini. Gemini participa en la selección de IDs y su orden, no solo en redactar explicaciones; la validación exige IDs permitidos, posiciones coherentes y evidencias literales del contexto. Una salida inválida se descarta completa.

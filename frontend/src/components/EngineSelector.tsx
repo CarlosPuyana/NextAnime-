@@ -70,6 +70,9 @@ export function EngineSelector({
           </a>
         </p>
       )}
+      {gemini.available && (
+        <p className="engine-availability">{gemini.message}</p>
+      )}
       {mode === "gemini" && gemini.available && (
         <div className="ai-consent">
           <ShieldCheck size={18} />
