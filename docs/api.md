@@ -6,16 +6,17 @@ La API recibe y devuelve JSON. Para enviar cuerpos usa `Content-Type: applicatio
 
 ## Endpoints disponibles
 
-| Método | Ruta relativa a `/api` | Para qué sirve                                                            | Autenticación                               |
-| ------ | ---------------------- | ------------------------------------------------------------------------- | ------------------------------------------- |
-| GET    | `/health`              | Salud del proceso y configuración disponible de MAL/IA.                   | Pública                                     |
-| GET    | `/capabilities`        | Disponibilidad del proveedor y versión del consentimiento. No consume IA. | Pública                                     |
-| GET    | `/genres`              | Catálogo de géneros con IDs válidos para los filtros.                     | Pública                                     |
-| GET    | `/profiles/:username`  | Lista pública MAL del usuario y análisis de sus valoraciones.             | Pública                                     |
-| POST   | `/admin/login`         | Verificar credenciales y crear una sesión de administrador.               | Credenciales en el cuerpo                   |
-| GET    | `/admin/session`       | Comprobar si el token presentado sigue vigente.                           | Token opcional                              |
-| POST   | `/admin/logout`        | Revocar la sesión correspondiente al token presentado.                    | Token para revocar esa sesión               |
-| POST   | `/recommendations`     | Recomendaciones clásicas o selección/ordenación con Groq.                 | Pública para clásico; administrador para IA |
+| Método | Ruta relativa a `/api` | Para qué sirve                                                                    | Autenticación                               |
+| ------ | ---------------------- | --------------------------------------------------------------------------------- | ------------------------------------------- |
+| GET    | `/health`              | Salud del proceso y configuración disponible de MAL/IA.                           | Pública                                     |
+| GET    | `/capabilities`        | Disponibilidad del proveedor y versión del consentimiento. No consume IA.         | Pública                                     |
+| GET    | `/genres`              | Catálogo de géneros con IDs válidos para los filtros.                             | Pública                                     |
+| POST   | `/anime/ratings`       | Resolver nombres de anime y devolver su ID, título oficial y nota pública de MAL. | Pública                                     |
+| GET    | `/profiles/:username`  | Lista pública MAL del usuario y análisis de sus valoraciones.                     | Pública                                     |
+| POST   | `/admin/login`         | Verificar credenciales y crear una sesión de administrador.                       | Credenciales en el cuerpo                   |
+| GET    | `/admin/session`       | Comprobar si el token presentado sigue vigente.                                   | Token opcional                              |
+| POST   | `/admin/logout`        | Revocar la sesión correspondiente al token presentado.                            | Token para revocar esa sesión               |
+| POST   | `/recommendations`     | Recomendaciones clásicas o selección/ordenación con Groq.                         | Pública para clásico; administrador para IA |
 
 ## Sesión y llamadas privadas
 
@@ -147,6 +148,77 @@ Sin parámetros ni cuerpo. Respuesta **200**: un array de objetos `Genre`. Ejemp
 ```
 
 Los IDs se envían en `preferences.genres`. Los nombres de origen están en inglés; la interfaz aplica las etiquetas españolas. No se requiere token.
+
+### POST `/anime/ratings`
+
+Recibe una lista de **nombres**, busca en la API oficial de MyAnimeList y devuelve su ID, nombre canónico y nota media pública. No necesita login, no utiliza IA y **la aplicación no llama a esta ruta**: está disponible para clientes externos o llamadas manuales.
+
+```http
+POST https://nextanime-server.up.railway.app/api/anime/ratings
+Content-Type: application/json
+```
+
+```json
+{
+  "names": ["Naruto", "Death Note", "Fullmetal Alchemist: Brotherhood"]
+}
+```
+
+Respuesta **200**, array en el mismo orden que la entrada:
+
+```json
+[
+  { "id": 20, "name": "Naruto", "score": 8.03 },
+  { "id": 1535, "name": "Death Note", "score": 8.62 },
+  { "id": 5114, "name": "Fullmetal Alchemist: Brotherhood", "score": 9.1 }
+]
+```
+
+Las notas del ejemplo son ilustrativas: se devuelve el valor de MAL cuando se consulta y puede cambiar. Campos:
+
+| Campo   | Tipo            | Significado                                                                                                                                                                                                                         |
+| ------- | --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `id`    | entero          | Identificador oficial de MyAnimeList.                                                                                                                                                                                               |
+| `name`  | string          | Título canónico de MAL; puede estar en japonés romanizado aunque se busque por el título inglés.                                                                                                                                    |
+| `score` | número o `null` | Media pública de MAL (`mean`), en escala 0–10. `null` significa que aún no hay una nota publicada; nunca se inventa un cero. No es la nota personal `score` que aparece dentro de `Anime` en las rutas de perfiles/recomendaciones. |
+
+Se comparan el título canónico y los títulos alternativos ingleses, japoneses y sinónimos devueltos por MAL, ignorando mayúsculas, tildes, espacios y puntuación. Se prioriza una coincidencia exacta. Si no existe, se acepta una única coincidencia de búsqueda; varias coincidencias no se resuelven escogiendo arbitrariamente la primera temporada.
+
+Para nombres desconocidos o ambiguos se mantiene una entrada en su posición con `id=null`, `score=null` y un `error`. Un mismo lote puede contener éxitos y estos resultados sin resolver. Ejemplo de errores, con candidatos abreviados:
+
+```json
+[
+  {
+    "id": null,
+    "name": "Nombre inexistente",
+    "score": null,
+    "error": "not_found"
+  },
+  {
+    "id": null,
+    "name": "Frieren",
+    "score": null,
+    "error": "ambiguous",
+    "candidates": [
+      { "id": 52991, "name": "Sousou no Frieren", "score": 9.24 },
+      { "id": 59978, "name": "Sousou no Frieren 2nd Season", "score": 8.83 }
+    ]
+  }
+]
+```
+
+`not_found`: MAL no devolvió resultados. `ambiguous`: hay varias coincidencias posibles; `candidates` contiene hasta diez opciones con `id`, `name` y `score`. Se puede reenviar el nombre canónico completo de la opción deseada. Un ID real con `score=null` y sin `error` significa título encontrado pero aún sin nota.
+
+Condiciones de entrada y operación:
+
+- Cuerpo exacto `{"names":[...]}`; hasta **20 nombres**, de **3 a 120 caracteres** cada uno, sin caracteres de control. Se eliminan espacios en los extremos. MAL rechaza búsquedas de menos de tres caracteres: para títulos cortos utiliza un título alternativo más largo.
+- `{"names":[]}` devuelve `[]` sin consultar MAL. Las repeticiones de la entrada se conservan en la salida, reutilizando la búsqueda.
+- Caché interna de búsquedas/notas de hasta **una hora**; consultas equivalentes simultáneas comparten una petición. No utiliza las cuotas de Groq ni de Gemini.
+- Hasta dos lotes activos; se conserva el ritmo de consultas MAL existente y el limitador general de 30 peticiones/minuto por IP.
+- Parámetros inválidos: **400**. Fuente MAL incompleta: **502**. Fuente no disponible, credencial del servidor ausente o búsqueda ocupada: **503**. Un error de la fuente interrumpe el lote con el error HTTP; no se presenta como un título inexistente. Los errores de búsqueda `not_found/ambiguous`, en cambio, forman parte de una respuesta **200**.
+- Respuesta `Cache-Control: no-store`; esta cabecera no elimina la caché interna del servidor.
+
+La clave MAL configurada en Railway nunca se envía al cliente. No se requiere ni se admite una clave del proveedor en el cuerpo de esta llamada.
 
 ### GET `/profiles/:username`
 

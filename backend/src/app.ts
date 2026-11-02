@@ -9,6 +9,7 @@ import { analyze, eligible, rankCandidates } from "./recommender.js";
 import type { RankingService } from "./ai.js";
 import { ExperimentalRankingService } from "./groq/ranking.js";
 import { AdminAuth } from "./admin.js";
+import { AnimeRatingsService, ratingsInput } from "./anime-ratings.js";
 import type { Anime, Genre, Profile } from "../../shared/types.js";
 export interface Services {
   loadProfile: (username: string) => Promise<Profile>;
@@ -38,6 +39,7 @@ export function createApp(
   services: Services = providers,
   ranking: RankingService = new ExperimentalRankingService(),
   admin = new AdminAuth(),
+  ratings: Pick<AnimeRatingsService, "lookup"> = new AnimeRatingsService(),
 ) {
   const app = express();
   app.disable("x-powered-by");
@@ -83,6 +85,28 @@ export function createApp(
   app.get("/api/genres", async (_req, res) =>
     res.json(await services.loadGenres()),
   );
+  let activeRatingBatches = 0;
+  app.post("/api/anime/ratings", async (req, res) => {
+    const input = ratingsInput.safeParse(req.body);
+    if (!input.success)
+      throw new ApiError(
+        400,
+        'Envía {"names":[...]} con un máximo de 20 nombres de anime de entre 3 y 120 caracteres.',
+      );
+    if (activeRatingBatches >= 2)
+      throw new ApiError(
+        503,
+        "La búsqueda de notas está ocupada. Inténtalo en unos segundos.",
+      );
+    activeRatingBatches++;
+    try {
+      res
+        .set("Cache-Control", "no-store")
+        .json(await ratings.lookup(input.data.names));
+    } finally {
+      activeRatingBatches--;
+    }
+  });
   const loginLimit = rateLimit({
     windowMs: 15 * 60_000,
     limit: 5,
@@ -127,13 +151,11 @@ export function createApp(
     res.set("Cache-Control", "no-store").json({ ok: true });
   });
   app.get("/api/capabilities", (_req, res) =>
-    res
-      .set("Cache-Control", "no-store")
-      .json({
-        ai: ranking.status(),
-        gemini: ranking.legacyStatus?.() ?? ranking.status(),
-        consentVersion: "2026-11-01",
-      }),
+    res.set("Cache-Control", "no-store").json({
+      ai: ranking.status(),
+      gemini: ranking.legacyStatus?.() ?? ranking.status(),
+      consentVersion: "2026-11-01",
+    }),
   );
   app.get("/api/profiles/:username", async (req, res) => {
     const username = usernameSchema.parse(req.params.username);
