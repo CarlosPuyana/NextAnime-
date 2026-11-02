@@ -224,6 +224,28 @@ describe("Groq integration", () => {
       result.items.every((a) => !a.explanation.includes("Como te gust")),
     ).toBe(true);
   });
+  it("cleans a redundant model prefix in the real received connection format", () => {
+    const i = input(),
+      context = buildGroqContext(
+        i.profile,
+        rankCandidates(i.profile, i.candidates, i.preferences),
+        i.preferences,
+      );
+    const data = output(context);
+    const item = data.recommendations.find(
+      (a) => a.favoriteAnimeIds.length > 0,
+    )!;
+    item.connection =
+      "podría gustarte también por su mezcla de aventura épica y desarrollo de personajes profundos";
+    const result = validateGroqRanking(JSON.stringify(data), context);
+    const explanation = result.find(
+      (a) => a.animeId === item.animeId,
+    )!.explanation;
+    expect(explanation).toContain(
+      "podría gustarte también por su mezcla de aventura épica",
+    );
+    expect(explanation).not.toContain("por podría gustarte");
+  });
   it("does not call the provider without consent, key, or the initial count of three", async () => {
     const call = vi.fn(good);
     for (const i of [

@@ -264,7 +264,12 @@ export const validateGroqRanking: RankingProvider["validate"] = (
         const titles = favorites
           .map((a) => `${a.title} (${a.personalScore}/10)`)
           .join(" y ");
-        const connection = item.connection!.replace(/[.!?]+$/, "");
+        const connection = item
+          .connection!.replace(
+            /^(?:(?:este(?:\s+anime)?\s+)?(?:podr[ií]a|puede)\s+(?:gustarte|encajarte)(?:\s+tambi[eé]n)?\s+(?:por|debido\s+a)\s+|por\s+)+/i,
+            "",
+          )
+          .replace(/[.!?]+$/, "");
         const phrase = connection.charAt(0).toLowerCase() + connection.slice(1);
         return `Como te ${favorites.length > 1 ? "gustaron" : "gustó"} ${titles}, este anime podría gustarte también por ${phrase}. ${item.reason}`;
       })(),
