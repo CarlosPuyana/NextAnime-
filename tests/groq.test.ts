@@ -38,6 +38,12 @@ const quota = (): QuotaStore => ({
   failure: vi.fn(),
   success: vi.fn(),
 });
+const references = (
+  candidate: Parameters<GeminiTransport>[0]["candidates"][number],
+) =>
+  (
+    candidate as typeof candidate & { comparableFavoriteIds: number[] }
+  ).comparableFavoriteIds.slice(0, 2);
 const output = (context: Parameters<GeminiTransport>[0]) => ({
   recommendations: context.candidates
     .slice(-Math.min(3, context.candidates.length))
@@ -50,7 +56,14 @@ const output = (context: Parameters<GeminiTransport>[0]) => ({
         "Podría interesarte el contraste entre las metas del protagonista y las dificultades del camino. Su premisa permite explorar el coste personal de seguir adelante.",
         "La atmósfera de misterio puede encajar con tu interés por descubrir mundos junto a sus personajes. Es una conexión tentativa basada en las sinopsis disponibles.",
       ][i],
-      favoriteAnimeId: context.taste.positive[0]?.animeId ?? null,
+      favoriteAnimeIds: references(a),
+      connection: references(a).length
+        ? [
+            "la aventura y el papel de los vínculos entre sus protagonistas",
+            "el coste personal de perseguir objetivos en un mundo hostil",
+            "la atmósfera de descubrimiento y los conflictos de sus personajes",
+          ][i]
+        : null,
     })),
 });
 const good: GeminiTransport = async (context) => ({
@@ -150,7 +163,8 @@ describe("Groq integration", () => {
         data.recommendations[0].animeId = data.recommendations[1].animeId;
       if (kind === "rank") data.recommendations[0].rank = 3;
       if (kind === "partial") data.recommendations.pop();
-      if (kind === "invented") data.recommendations[0].favoriteAnimeId = 999999;
+      if (kind === "invented")
+        data.recommendations[0].favoriteAnimeIds = [999999];
       if (kind === "spoiler")
         data.recommendations[0].reason =
           "Puede interesarte porque el protagonista muere al final y esto cambia por completo el desenlace de la historia.";
@@ -177,8 +191,38 @@ describe("Groq integration", () => {
     expect(valid[0].explanation).toContain(
       `${context.taste.positive[0].personalScore}/10`,
     );
-    data.recommendations[0].favoriteAnimeId = 999999;
+    data.recommendations[0].favoriteAnimeIds = [999999];
     expect(() => validateGroqRanking(JSON.stringify(data), context)).toThrow();
+  });
+  it("requires personal references when comparable favorites exist and rejects duplicate references", () => {
+    const i = input(),
+      context = buildGroqContext(
+        i.profile,
+        rankCandidates(i.profile, i.candidates, i.preferences),
+        i.preferences,
+      );
+    const data = output(context);
+    const item = data.recommendations.find(
+      (a) => a.favoriteAnimeIds.length > 0,
+    )!;
+    const realId = item.favoriteAnimeIds[0];
+    item.favoriteAnimeIds = [];
+    item.connection = null;
+    expect(() => validateGroqRanking(JSON.stringify(data), context)).toThrow();
+    item.favoriteAnimeIds = [realId, realId];
+    item.connection = "los conflictos de sus protagonistas y sus vínculos";
+    expect(() => validateGroqRanking(JSON.stringify(data), context)).toThrow();
+  });
+  it("does not invent comparisons for a profile without rated favorites", async () => {
+    const i = input();
+    i.profile = { ...i.profile, anime: [] };
+    const result = await new GroqRankingService(config(), good, quota()).rank(
+      i,
+    );
+    expect(result.engine).toBe("groq");
+    expect(
+      result.items.every((a) => !a.explanation.includes("Como te gust")),
+    ).toBe(true);
   });
   it("does not call the provider without consent, key, or the initial count of three", async () => {
     const call = vi.fn(good);

@@ -56,6 +56,9 @@ export async function checkGroqRecommendation(ranking: RankingService) {
         anonymousStatus: denied.status,
         forbiddenStatus: forbidden.status,
         valid: result.engine === "groq" && result.items?.length === 3,
+        personalComparisons: result.items?.filter((item: any) =>
+          item.explanation?.startsWith("Como te gust"),
+        ).length,
         engine: result.engine,
         ...result.engineInfo,
         selected: result.items?.map((item: any) => ({

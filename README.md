@@ -5,6 +5,7 @@ Tu próxima historia empieza aquí. Una aplicación de recomendaciones personale
 - [Abrir NextAnime](https://carlospuyana.github.io/NextAnime-/)
 - [Repositorio](https://github.com/CarlosPuyana/NextAnime-)
 - [Estado de la API](https://nextanime-server.up.railway.app/api/health)
+- [Documentación de los endpoints de Railway](docs/api.md)
 
 ## Cómo usarlo
 
@@ -89,7 +90,7 @@ El pool externo reúne rankings oficiales por nota y popularidad, una página de
 
 El motor combina afinidad de géneros, similitud de sinopsis con tokens e IDF, preferencias de formato, nota pública, coincidencia de filtros y penalización de similitud para dar variedad. Los pesos están en `DEFAULT_WEIGHTS`. Comprueba metadatos y precuelas; los candidatos no verificables se omiten con un aviso. `rankingScore` es una señal interna, **no una probabilidad**, y no se presenta como porcentaje.
 
-El modo clásico mantiene ese algoritmo. Groq recibe hasta 12 candidatos ya filtrados, fragmentos de sinopsis y un resumen con hasta cinco favoritos y dos rechazos, sin username ni imágenes. Selecciona los IDs y su orden y redacta dos frases de encaje narrativo por título. Puede vincularlas a un favorito positivo cuyo ID verifica el servidor, que añade su nombre y la nota real. Se comprueban cantidad, IDs, rangos, filtros, referencias y spoilers evidentes; no se presenta esa comprobación como una prueba formal de todas las interpretaciones semánticas del modelo. Ante errores, cuotas o falta de consentimiento/configuración se conserva el resultado clásico y se indica el motor realmente utilizado. Gemini se conserva desactivado como integración compatible.
+El modo clásico mantiene ese algoritmo. Groq recibe hasta 12 candidatos ya filtrados, fragmentos de sinopsis y un resumen con hasta cinco favoritos y dos rechazos, sin username ni imágenes. Selecciona los IDs y su orden y explica el encaje narrativo. Cuando existen favoritos comparables, debe elegir uno o dos: el servidor verifica sus IDs y añade sus nombres y notas reales en una comparación «Como te gustó…». Sin favoritos comparables se permite una propuesta exploratoria. Se comprueban cantidad, IDs, rangos, filtros, referencias y spoilers evidentes; no se presenta esa comprobación como una prueba formal de todas las interpretaciones semánticas del modelo. Ante errores, cuotas o falta de consentimiento/configuración se conserva el resultado clásico y se indica el motor realmente utilizado. Gemini se conserva desactivado como integración compatible.
 
 **Estado 3.2: Groq como proveedor experimental predeterminado**, `GROQ_MODEL=openai/gpt-oss-20b`, `GROQ_ENABLED=true`, `GROQ_TIMEOUT_MS=45000`; `GEMINI_ENABLED=false`. Ambas comprobaciones reales se ejecutaron dentro de Railway: conectividad HTTP 200 en 160 ms y recomendación validada de SadPuyana en 632 ms, con 2.101 tokens de entrada y 187 de salida. Los visitantes mantienen el clásico. Las claves permanecen en variables privadas. Los contadores en memoria se reinician con el proceso; no garantizan seis llamadas totales entre reinicios o réplicas. No se activó facturación ni se crearon servicios de pago.
 
