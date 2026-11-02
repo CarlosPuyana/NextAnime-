@@ -26,7 +26,7 @@ export const groqSchema = z.strictObject({
     .min(1)
     .max(3),
 });
-export const groqWireSchema = {
+export const groqWireSchema = (favoriteIds: number[] = []) => ({
   type: "object",
   properties: {
     recommendations: {
@@ -37,8 +37,16 @@ export const groqWireSchema = {
           animeId: { type: "integer" },
           rank: { type: "integer" },
           reason: { type: "string" },
-          favoriteAnimeIds: { type: "array", items: { type: "integer" } },
-          connection: { type: ["string", "null"] },
+          favoriteAnimeIds: {
+            type: "array",
+            items: {
+              type: "integer",
+              ...(favoriteIds.length ? { enum: favoriteIds } : {}),
+            },
+          },
+          connection: {
+            type: favoriteIds.length ? "string" : ["string", "null"],
+          },
         },
         required: [
           "animeId",
@@ -53,7 +61,7 @@ export const groqWireSchema = {
   },
   required: ["recommendations"],
   additionalProperties: false,
-};
+});
 const integer = (
   value: string | undefined,
   fallback: number,
@@ -121,7 +129,7 @@ export function buildGroqContext(
   });
   const context: GeminiContext = {
     ...base,
-    promptVersion: "groq-personal-comparisons-3",
+    promptVersion: "groq-personal-comparisons-4",
     taste: {
       ...base.taste,
       positive: base.taste.positive.slice(0, 5).map(compact),
@@ -132,10 +140,20 @@ export function buildGroqContext(
       ...compact(candidate),
       comparableFavoriteIds: base.taste.positive
         .slice(0, 5)
-        .filter((favorite) =>
-          favorite.genres.some(
-            (g) => !demographicGenres.has(g) && candidate.genres.includes(g),
-          ),
+        .sort(
+          (a, b) =>
+            Number(
+              b.genres.some(
+                (g) =>
+                  !demographicGenres.has(g) && candidate.genres.includes(g),
+              ),
+            ) -
+            Number(
+              a.genres.some(
+                (g) =>
+                  !demographicGenres.has(g) && candidate.genres.includes(g),
+              ),
+            ),
         )
         .map((favorite) => favorite.animeId),
     })),
@@ -163,7 +181,21 @@ export const validateGroqRanking: RankingProvider["validate"] = (
   context,
 ) => {
   if (text.length > 10000) throw new SyntaxError("oversized Groq output");
-  const output = groqSchema.parse(JSON.parse(text));
+  const parsed = groqSchema.safeParse(JSON.parse(text));
+  if (!parsed.success) {
+    console.warn(
+      JSON.stringify({
+        event: "groq_validation",
+        reason: "schema",
+        issues: parsed.error.issues.map((issue) => ({
+          path: issue.path.join("."),
+          code: issue.code,
+        })),
+      }),
+    );
+    throw parsed.error;
+  }
+  const output = parsed.data;
   if (output.recommendations.length !== Math.min(3, context.candidates.length))
     throw new SyntaxError("partial Groq output");
   const ids = new Set<number>(),
@@ -192,8 +224,25 @@ export const validateGroqRanking: RankingProvider["validate"] = (
       /(https?:|<[^>]*>|\b(?:muere|mueren|asesino es|al final|desenlace|dies|final twist|identidad secreta|verdadera identidad)\b)/i.test(
         item.reason + " " + (item.connection || ""),
       )
-    )
+    ) {
+      console.warn(
+        JSON.stringify({
+          event: "groq_validation",
+          reason: "selection_or_reference",
+          animeId: item.animeId,
+          duplicateId: ids.has(item.animeId),
+          duplicateRank: ranks.has(item.rank),
+          favoriteIds: item.favoriteAnimeIds,
+          allowedIds: candidate?.comparableFavoriteIds,
+          missingComparison:
+            !!candidate?.comparableFavoriteIds.length &&
+            !item.favoriteAnimeIds.length,
+          reasonLength: item.reason.length,
+          connectionLength: item.connection?.length,
+        }),
+      );
       throw new SyntaxError("invalid Groq selection or unsupported reason");
+    }
     ids.add(item.animeId);
     ranks.add(item.rank);
     explanations.add(item.reason.toLowerCase());
@@ -249,7 +298,9 @@ export class GroqRankingService extends GeminiRankingService {
                 json_schema: {
                   name: "anime_selection",
                   strict: true,
-                  schema: groqWireSchema,
+                  schema: groqWireSchema(
+                    context.taste.positive.map((a) => a.animeId),
+                  ),
                 },
               },
               reasoning_effort: "low",
