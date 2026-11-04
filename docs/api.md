@@ -6,17 +6,50 @@ La API recibe y devuelve JSON. Para enviar cuerpos usa `Content-Type: applicatio
 
 ## Endpoints disponibles
 
-| Método | Ruta relativa a `/api` | Para qué sirve                                                                    | Autenticación                               |
-| ------ | ---------------------- | --------------------------------------------------------------------------------- | ------------------------------------------- |
-| GET    | `/health`              | Salud del proceso y configuración disponible de MAL/IA.                           | Pública                                     |
-| GET    | `/capabilities`        | Disponibilidad del proveedor y versión del consentimiento. No consume IA.         | Pública                                     |
-| GET    | `/genres`              | Catálogo de géneros con IDs válidos para los filtros.                             | Pública                                     |
-| POST   | `/anime/ratings`       | Resolver nombres de anime y devolver su ID, título oficial y nota pública de MAL. | Pública                                     |
-| GET    | `/profiles/:username`  | Lista pública MAL del usuario y análisis de sus valoraciones.                     | Pública                                     |
-| POST   | `/admin/login`         | Verificar credenciales y crear una sesión de administrador.                       | Credenciales en el cuerpo                   |
-| GET    | `/admin/session`       | Comprobar si el token presentado sigue vigente.                                   | Token opcional                              |
-| POST   | `/admin/logout`        | Revocar la sesión correspondiente al token presentado.                            | Token para revocar esa sesión               |
-| POST   | `/recommendations`     | Recomendaciones clásicas o selección/ordenación con Groq.                         | Pública para clásico; administrador para IA |
+| Método | Ruta relativa a `/api`      | Para qué sirve                                                                    | Autenticación                               |
+| ------ | --------------------------- | --------------------------------------------------------------------------------- | ------------------------------------------- |
+| GET    | `/health`                   | Salud del proceso y configuración disponible de MAL/IA.                           | Pública                                     |
+| GET    | `/capabilities`             | Disponibilidad del proveedor y versión del consentimiento. No consume IA.         | Pública                                     |
+| GET    | `/genres`                   | Catálogo de géneros con IDs válidos para los filtros.                             | Pública                                     |
+| POST   | `/anime/ratings`            | Resolver nombres de anime y devolver su ID, título oficial y nota pública de MAL. | Pública                                     |
+| GET    | `/profiles/:username`       | Lista pública MAL del usuario y análisis de sus valoraciones.                     | Pública                                     |
+| GET    | `/getPlanToWatch/:username` | Lista completa de pendientes, en formato MAL compatible con clientes anteriores.  | Pública                                     |
+| POST   | `/admin/login`              | Verificar credenciales y crear una sesión de administrador.                       | Credenciales en el cuerpo                   |
+| GET    | `/admin/session`            | Comprobar si el token presentado sigue vigente.                                   | Token opcional                              |
+| POST   | `/admin/logout`             | Revocar la sesión correspondiente al token presentado.                            | Token para revocar esa sesión               |
+| POST   | `/recommendations`          | Recomendaciones clásicas o selección/ordenación con Groq.                         | Pública para clásico; administrador para IA |
+
+La ruta de pendientes también mantiene su URL histórica **fuera de `/api`**: `https://nextanime-server.up.railway.app/getPlanToWatch/:username`.
+
+### GET `/getPlanToWatch/:username` (compatibilidad)
+
+Ejemplo: [pendientes de SadPuyana](https://nextanime-server.up.railway.app/getPlanToWatch/SadPuyana). También admite `/api/getPlanToWatch/SadPuyana`. No requiere sesión ni utiliza IA. `username` admite 2–16 letras ASCII, números, `_` y `-`.
+
+Devuelve **todos** los animes públicos con estado `plan_to_watch`, recuperando internamente todas las páginas de MAL, sin limitarse a los primeros 100 y eliminando IDs repetidos. Conserva el formato anterior para que `data.data.map(item => item.node.title)` siga funcionando:
+
+```json
+{
+  "data": [
+    {
+      "node": {
+        "id": 5114,
+        "title": "Fullmetal Alchemist: Brotherhood",
+        "main_picture": {
+          "medium": "https://cdn.myanimelist.net/images/anime/1208/94745.jpg"
+        }
+      },
+      "list_status": { "status": "plan_to_watch", "score": 0 }
+    }
+  ],
+  "paging": {}
+}
+```
+
+Las entradas conservan los campos devueltos por MAL; `main_picture` puede faltar. `list_status` añade el estado personal y otros campos disponibles. `paging` está vacío porque la respuesta ya agrega todas las páginas. Una lista vacía devuelve `{"data":[],"paging":{}}`. No se devuelven resultados parciales si falla una página.
+
+Mejoras: validación de usuario, caché interna de cinco minutos, consultas simultáneas del mismo usuario compartidas, timeout/reintentos limitados del proveedor y límite de 30 peticiones/minuto por IP, compartido con `/api`. Respuesta `Cache-Control: no-store`. Errores JSON `{"error":"..."}`: **400** usuario inválido, **403** lista privada/no permitida, **404** usuario inexistente, **502** datos o paginación incompletos, **503** fuente no disponible o credencial MAL ausente, **429** límite HTTP.
+
+Para clientes externos, **solo estas dos rutas públicas de pendientes** permiten además orígenes localhost/127.0.0.1/IPv6 loopback con cualquier puerto y origen `null`, utilizado al abrir un `index.html` mediante `file://`. El origen `null` también puede representar otros documentos de origen opaco; esta excepción se limita a lectura pública sin credenciales y no abre login, recomendaciones ni otras rutas privadas. Los demás endpoints conservan su política CORS habitual.
 
 ## Sesión y llamadas privadas
 

@@ -12,6 +12,7 @@ import { AdminAuth } from "./admin.js";
 import { AnimeRatingsService, ratingsInput } from "./anime-ratings.js";
 import type { Anime, Genre, Profile } from "../../shared/types.js";
 export interface Services {
+  loadPlanToWatch?: typeof providers.loadPlanToWatch;
   loadProfile: (username: string) => Promise<Profile>;
   loadGenres: () => Promise<Genre[]>;
   loadDiscovery: (genres: number[]) => Promise<Anime[]>;
@@ -51,14 +52,35 @@ export function createApp(
     .split(",")
     .map((x) => x.trim());
   app.use(helmet());
-  app.use(
+  app.use((req, res, next) => {
+    const pendingRoute = /^\/(?:api\/)?getPlanToWatch\/[^/]+\/?$/.test(
+      req.path,
+    );
     cors({
       origin: (origin, cb) => {
-        if (!origin || allowed.includes(origin)) cb(null, true);
+        let localPendingClient = false;
+        if (origin && pendingRoute) {
+          try {
+            const url = new URL(origin);
+            localPendingClient =
+              ["http:", "https:"].includes(url.protocol) &&
+              ["localhost", "127.0.0.1", "[::1]"].includes(url.hostname);
+          } catch {
+            /* Invalid origins remain forbidden. */
+          }
+        }
+        if (
+          !origin ||
+          allowed.includes(origin) ||
+          localPendingClient ||
+          (pendingRoute && origin === "null")
+        )
+          cb(null, true);
         else cb(new ApiError(403, "Origen no autorizado."));
       },
-    }),
-  );
+      ...(pendingRoute ? { methods: ["GET"] } : {}),
+    })(req, res, next);
+  });
   app.use(express.json({ limit: "128kb" }));
   app.get("/api/health", (_req, res) =>
     res.json({
@@ -71,7 +93,7 @@ export function createApp(
     }),
   );
   app.use(
-    "/api",
+    ["/api", "/getPlanToWatch"],
     rateLimit({
       windowMs: 60_000,
       limit: 30,
@@ -84,6 +106,19 @@ export function createApp(
   );
   app.get("/api/genres", async (_req, res) =>
     res.json(await services.loadGenres()),
+  );
+  app.get(
+    ["/getPlanToWatch/:username", "/api/getPlanToWatch/:username"],
+    async (req, res) => {
+      const username = usernameSchema.parse(req.params.username);
+      res
+        .set("Cache-Control", "no-store")
+        .json(
+          await (services.loadPlanToWatch ?? providers.loadPlanToWatch)(
+            username,
+          ),
+        );
+    },
   );
   let activeRatingBatches = 0;
   app.post("/api/anime/ratings", async (req, res) => {

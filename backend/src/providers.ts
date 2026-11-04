@@ -9,6 +9,18 @@ const fields =
 export const validUsername = (value: string) =>
   /^[A-Za-z0-9_-]{2,16}$/.test(value);
 const profiles = new Cache<Profile>(5 * 60_000, 50);
+export interface PlanToWatch {
+  data: {
+    node: {
+      id: number;
+      title: string;
+      main_picture?: { medium?: string; large?: string };
+    };
+    list_status: { status: string; [key: string]: unknown };
+  }[];
+  paging: Record<string, never>;
+}
+const pendingLists = new Cache<PlanToWatch>(5 * 60_000, 50);
 const catalogCache = new Cache<Anime[]>(60 * 60_000, 20);
 const details = new Cache<Anime>(24 * 60 * 60_000, 3000);
 const inFlight = new Map<string, Promise<unknown>>();
@@ -138,6 +150,64 @@ async function coalesce<T>(key: string, work: () => Promise<T>): Promise<T> {
   const job = work().finally(() => inFlight.delete(key));
   inFlight.set(key, job);
   return job;
+}
+export async function loadPlanToWatch(
+  username: string,
+  request = upstream,
+): Promise<PlanToWatch> {
+  if (!validUsername(username))
+    throw new ApiError(
+      400,
+      "Usa entre 2 y 16 letras, números, guiones o guiones bajos.",
+    );
+  if (
+    !process.env.MAL_CLIENT_ID &&
+    !process.env.CLIENT_ID &&
+    request === upstream
+  )
+    throw new ApiError(503, "Falta configurar MAL_CLIENT_ID en el backend.");
+  const key = username.toLowerCase();
+  const cached = request === upstream ? pendingLists.get(key) : undefined;
+  if (cached) return cached;
+  return coalesce(`pending:${key}`, async () => {
+    const entries = new Map<number, PlanToWatch["data"][number]>();
+    let offset = 0;
+    for (;;) {
+      // Rebuild each URL rather than following an upstream-supplied paging URL.
+      const page = await request(
+        `${MAL}/users/${encodeURIComponent(username)}/animelist?status=plan_to_watch&limit=1000&offset=${offset}&fields=list_status&nsfw=true`,
+      );
+      if (!page || !Array.isArray(page.data))
+        throw new ApiError(
+          502,
+          "MyAnimeList ha devuelto una lista incompleta.",
+        );
+      const previousSize = entries.size;
+      for (const item of page.data) {
+        if (
+          !Number.isInteger(item?.node?.id) ||
+          item.node.id <= 0 ||
+          typeof item.node.title !== "string" ||
+          !item.node.title.trim() ||
+          item.list_status?.status !== "plan_to_watch"
+        )
+          throw new ApiError(
+            502,
+            "MyAnimeList ha devuelto pendientes inválidos.",
+          );
+        entries.set(item.node.id, item);
+      }
+      if (!page.paging?.next) break;
+      if (entries.size === previousSize)
+        throw new ApiError(
+          502,
+          "La paginación de MyAnimeList está incompleta.",
+        );
+      offset += page.data.length;
+    }
+    const result: PlanToWatch = { data: [...entries.values()], paging: {} };
+    return request === upstream ? pendingLists.set(key, result) : result;
+  });
 }
 export async function loadProfile(
   username: string,
